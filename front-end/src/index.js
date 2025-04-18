@@ -1,13 +1,36 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import App from './App';
+import App from './components/App/App';
+import Navbar from './components/Navbar/Navbar';
 import reportWebVitals from './reportWebVitals';
+
+// 👇 MUI theme provider stuff
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+
+export const themeOptions = {
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#ff3b59',
+    },
+    secondary: {
+      main: '#5e5e5e',
+    },
+  },
+};
+
+export const theme = createTheme(themeOptions);
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {/* <App /> */}
+      <Navbar />
+    </ThemeProvider>
   </React.StrictMode>
 );
 
