@@ -28,8 +28,11 @@ root.render(
   <React.StrictMode>
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      {/* <App /> */}
+      
       <Navbar />
+
+      <App />
+
     </ThemeProvider>
   </React.StrictMode>
 );

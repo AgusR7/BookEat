@@ -37,27 +37,28 @@ function ResponsiveAppBar() {
   };
 
   return (
-    <AppBar position="static">
+    <AppBar position="fixed">
       <Container maxWidth="xl">
-        <Toolbar disableGutters>
-          <RestaurantIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }} />
-          <Typography
-            variant="h6"
-            noWrap
-            component="a"
-            href="#app-bar-with-responsive-menu"
-            sx={{
-              mr: 2,
-              display: { xs: 'none', md: 'flex' },
-              fontFamily: 'sans-serif',
-              fontWeight: 700,
-              letterSpacing: '.10rem',
-              color: 'inherit',
-              textDecoration: 'none',
-            }}
-          >
-            BookEat
-          </Typography>
+        <Toolbar disableGutters >
+          <Box sx={{ display: {md: 'flex'}, justifyContent: 'center', alignItems: 'center'}}>
+            <RestaurantIcon sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }} />
+            <Typography
+              variant="h6"
+              noWrap
+              component="a"
+              href="#app-bar-with-responsive-menu"
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                fontFamily: 'sans-serif',
+                fontWeight: 700,
+                letterSpacing: '.10rem',
+                color: 'inherit',
+                textDecoration: 'none',
+              }}
+            >
+              BookEat
+            </Typography>
+          </Box >
 
           <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none'} }}>
             <IconButton
