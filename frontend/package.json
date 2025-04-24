@@ -8,16 +8,22 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^7.0.2",
+    "@mui/material": "^7.0.2",
     "@react-google-maps/api": "^2.20.6",
     "axios": "^1.8.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-router-dom": "^7.5.1",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@types/axios": "^0.9.36",
     "@types/react": "^18.3.20",
     "@types/react-dom": "^18.3.6",
+    "@types/react-router-dom": "^5.3.3",
     "@types/socket.io-client": "^1.4.36",
     "@vitejs/plugin-react": "^4.4.1",
     "typescript": "^5.4.2",
