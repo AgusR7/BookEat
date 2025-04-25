@@ -5,6 +5,7 @@ import Map from './components/Map';
 import ReservationsList from './components/ReservationsList';
 import { useAuth } from './hooks/useAuth';
 import  temaPrincipal  from '../theme/temaPrincipal';
+import Navbar from './components/Navbar';
 import { ThemeProvider } from '@emotion/react';
 
 const App: React.FC = () => {
@@ -25,11 +26,14 @@ const App: React.FC = () => {
 
   // Ya está logueado: mostramos el dashboard
   return (
-    <div className="App" style={{ padding: 16 }}>
+    <ThemeProvider theme={temaPrincipal}>
+      <Navbar />
+      <div className="App" style={{ padding: 16 }}>
       <p>Bienvenido, {user.email}</p>
       <Map user={user} />
       <ReservationsList user={user} />
     </div>
+    </ThemeProvider>
   );
 };
 
