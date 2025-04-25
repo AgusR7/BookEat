@@ -3,6 +3,7 @@ import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import LoginButton from './LoginButton';
+import illustration from '../../img/outdoor-dining-1846137_1920.jpg'; 
 
 const LoginPage: React.FC = () => {
   return (
@@ -13,8 +14,11 @@ const LoginPage: React.FC = () => {
         width: '100vw',
       }}
     >
-      {/* IZQUIERDA: placeholder para imagen */}
+
       <Box
+      component={'img'}
+        src={illustration}
+        alt="Imagen de fondo"
         sx={{
           flex: 1,
           bgcolor: 'grey.100',
@@ -23,7 +27,7 @@ const LoginPage: React.FC = () => {
           alignItems: 'center',
         }}
       >
-        {/* aquí insertaremos la imagen más adelante */}
+
       </Box>
 
       {/* DERECHA: contenido de login */}
@@ -37,10 +41,13 @@ const LoginPage: React.FC = () => {
           p: 4,
         }}
       >
-        <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
-          BookEat
+        <Typography variant="h2" component="h1" gutterBottom sx ={{ textAlign: 'center'}}>
+          Book
+          <Box component={'span'} sx={{ color: 'primary.main', fontWeight: 'bold' }}>
+            Eat
+          </Box>
         </Typography>
-        <Typography variant="h6" component="h2" textAlign="center" gutterBottom>
+        <Typography variant="h6" component="h2" textAlign="center" gutterBottom sx={{ mb: 4 }}>
           Explora, elige, reserva. Así de simple.
         </Typography>
         <LoginButton />
