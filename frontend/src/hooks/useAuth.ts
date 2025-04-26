@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 
 export interface User {
@@ -17,6 +17,15 @@ export function useAuth() {
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
+const logout = useCallback(async () => {
+    try {
+      await axios.post('/api/auth/logout', {}, { withCredentials: true });
+      setUser(null);
+    } catch (err) {
+      console.error('Error al cerrar sesión:', err);
+      throw err;
+    }
+  }, []);
 
-  return { user, loading };
+  return { user, loading, logout };
 }
