@@ -21,8 +21,12 @@ button {
   transition: background 0.3s;
 }
 
+/* #logoutbutton {
+  margin: 1%;
+} */
+
 button:hover {
-  background: #0056b3;
+  background: #8a8a8a;
 }
 
 .modal {

@@ -17,16 +17,16 @@ export function LogoutButton() {
   };
 
   return (
-    <Button
+    <Button id="logoutbutton"
       variant="contained"
-      color="primary"
+      color="inherit"
       startIcon={<LogoutIcon />}
       onClick={handleLogout}
       sx={{
         textTransform: 'none',
         disableElevation: true,
-        borderRadius: 3,   
-        mt: 2,
+        borderRadius: 0,   
+        m: 1,
         px: 3,
         py: 1.25,
       }}
