@@ -22,10 +22,10 @@ export function LogoutButton() {
       color="primary"
       startIcon={<LogoutIcon />}
       onClick={handleLogout}
+      disableElevation 
       sx={{
         textTransform: 'none',
-        disableElevation: true,
-        borderRadius: 3,   
+        borderRadius: 2.5,   
         mt: 2,
         px: 3,
         py: 1.25,
