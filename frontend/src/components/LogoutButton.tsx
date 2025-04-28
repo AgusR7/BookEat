@@ -22,6 +22,7 @@ export function LogoutButton() {
       color="inherit"
       startIcon={<LogoutIcon />}
       onClick={handleLogout}
+      disableElevation 
       sx={{
         textTransform: 'none',
         disableElevation: true,
