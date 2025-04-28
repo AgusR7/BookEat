@@ -13,7 +13,8 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AdbIcon from '@mui/icons-material/Adb';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
-import  temaPrincipal  from '../../theme/temaPrincipal';
+import LogoutButton from './LogoutButton';
+
 
 const pages = ['Inicio', 'Sobre Nosotros'];
 const settings = ['Perfil', 'Cerrar Sesión'];
@@ -151,11 +152,7 @@ function ResponsiveAppBar() {
               open={Boolean(anchorElUser)}
               onClose={handleCloseUserMenu}
             >
-              {settings.map((setting) => (
-                <MenuItem key={setting} onClick={handleCloseUserMenu}>
-                  <Typography textAlign="center">{setting}</Typography>
-                </MenuItem>
-              ))}
+              <LogoutButton />
             </Menu>
           </Box>
         </Toolbar>
