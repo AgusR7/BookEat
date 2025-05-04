@@ -53,7 +53,7 @@ export const getAvailability = async (req: Request, res: Response) => {
   );
   // Compute availability
   const availability = intervals.map(({ start, end }) => {
-    const usedTables = resRows.reduce((sum, r) => {
+    const usedTables = resRows.reduce((sum: number, r:any) => {
         const rStartMs = new Date(r.reservation_at).getTime();
         const rEndMs   = rStartMs + 90 * 60_000;
         return rStartMs < end && rEndMs > start
