@@ -11,20 +11,17 @@ const LoginPage: React.FC = () => {
       sx={{
         display: 'flex',
         height: '100vh',
-        width: '100vw',
+        width: '100vw'
       }}
     >
 
       <Box
-      component={'img'}
-        src={illustration}
-        alt="Imagen de fondo"
         sx={{
-          flex: 1,
           bgcolor: 'grey.100',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
+          width: '70%',
+          backgroundImage:`url(${illustration})`,
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover"
         }}
       >
 
