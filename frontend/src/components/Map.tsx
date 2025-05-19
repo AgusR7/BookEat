@@ -39,12 +39,13 @@ export default function Map({ user }: MapProps) {
   const [socket] = useState(() =>
     io('http://localhost:3001', { transports: ['websocket'] })
   );
-  // Nuevo: estado para el centro del mapa
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: -34.9011, lng: -56.1645 });
 
   useEffect(() => {
-    axios.get('/api/restaurants').then((res) => setRestaurants(res.data));
-  }, []);
+    if (user) {
+      axios.get('/api/restaurants').then((res) => setRestaurants(res.data));
+    }
+  }, [user]);
 
   useEffect(() => {
     restaurants.forEach((r) => {

@@ -1,8 +1,13 @@
 // backend/src/routes/auth.ts
 import { Router, Request, Response, NextFunction } from 'express';
 import passport from 'passport';
+import { register, login } from '../controllers/auth.controller';
 
 const router = Router();
+
+// Local authentication routes
+router.post('/register', register);
+router.post('/login', login);
 
 // 1. Inicio de OAuth con Google
 router.get(

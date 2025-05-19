@@ -14,10 +14,16 @@ CREATE TABLE IF NOT EXISTS restaurants (
 
 CREATE TABLE IF NOT EXISTS users (
     id              SERIAL PRIMARY KEY,
-    google_id       VARCHAR(60) UNIQUE NOT NULL,
+    google_id       VARCHAR(60) UNIQUE,
     email           VARCHAR(120) UNIQUE NOT NULL,
+    password        VARCHAR(255),
+    name            VARCHAR(120),
     role            VARCHAR(20) DEFAULT 'customer',
-    created_at      TIMESTAMP DEFAULT NOW()
+    created_at      TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT auth_method CHECK (
+        (google_id IS NOT NULL AND password IS NULL) OR
+        (google_id IS NULL AND password IS NOT NULL)
+    )
 );
 
 CREATE TABLE IF NOT EXISTS reservations (

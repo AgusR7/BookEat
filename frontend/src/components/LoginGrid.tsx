@@ -1,9 +1,10 @@
-
 import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import LoginButton from './LoginButton';
-import illustration from '../../img/outdoor-dining-1846137_1920.jpg'; 
+import LocalAuthForm from './LocalAuthForm';
+import illustration from '../../img/outdoor-dining-1846137_1920.jpg';
+import Divider from '@mui/material/Divider';
 
 const LoginPage: React.FC = () => {
   return (
@@ -14,9 +15,8 @@ const LoginPage: React.FC = () => {
         width: '100vw',
       }}
     >
-
       <Box
-      component={'img'}
+        component={'img'}
         src={illustration}
         alt="Imagen de fondo"
         sx={{
@@ -26,9 +26,7 @@ const LoginPage: React.FC = () => {
           justifyContent: 'center',
           alignItems: 'center',
         }}
-      >
-
-      </Box>
+      />
 
       {/* DERECHA: contenido de login */}
       <Box
@@ -41,7 +39,7 @@ const LoginPage: React.FC = () => {
           p: 4,
         }}
       >
-        <Typography variant="h2" component="h1" gutterBottom sx ={{ textAlign: 'center'}}>
+        <Typography variant="h2" component="h1" gutterBottom sx={{ textAlign: 'center' }}>
           Book
           <Box component={'span'} sx={{ color: 'primary.main', fontWeight: 'bold' }}>
             Eat
@@ -50,6 +48,17 @@ const LoginPage: React.FC = () => {
         <Typography variant="h6" component="h2" textAlign="center" gutterBottom sx={{ mb: 4 }}>
           Explora, elige, reserva. Así de simple.
         </Typography>
+
+        <LocalAuthForm />
+
+        <Box sx={{ width: '100%', maxWidth: 400, mt: 3, mb: 3 }}>
+          <Divider>
+            <Typography variant="body2" color="text.secondary">
+              o continúa con
+            </Typography>
+          </Divider>
+        </Box>
+
         <LoginButton />
       </Box>
     </Box>

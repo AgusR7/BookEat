@@ -8,6 +8,7 @@ declare global {
     interface Request {
       user?: any;
       isAuthenticated(): boolean;
+      login(user: any, callback: (err: any) => void): void;
     }
   }
 }

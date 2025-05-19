@@ -4,6 +4,7 @@ import axios from 'axios';
 export interface User {
   id: number;
   email: string;
+  name?: string;
   role: string;
 }
 
@@ -17,7 +18,8 @@ export function useAuth() {
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
-const logout = useCallback(async () => {
+
+  const logout = useCallback(async () => {
     try {
       await axios.post('/api/auth/logout', {}, { withCredentials: true });
       setUser(null);
@@ -27,5 +29,5 @@ const logout = useCallback(async () => {
     }
   }, []);
 
-  return { user, loading, logout };
+  return { user, setUser, loading, logout };
 }

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styles from '../styles/ReserveCard.module.scss';
 import { Restaurant } from './Map';
 import { DatePicker } from '@mui/x-date-pickers';
+import { CircularProgress } from '@mui/material';
 
 interface Availability {
   start: number;
@@ -35,6 +36,8 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
   setSelected,
   message,
 }) => {
+  const [isReserving, setIsReserving] = useState(false);
+
   if (!selected) return null;
 
   const handleDateChange = (newDate: Date | null) => {
@@ -59,6 +62,15 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
     }
     return null; // DatePicker can handle null if the date string is not valid or empty
   }, [date]);
+
+  const handleReserveClick = async () => {
+    setIsReserving(true);
+    try {
+      await handleReserve();
+    } finally {
+      setIsReserving(false);
+    }
+  };
 
   return (
     <div className={styles.reserveCard}>
@@ -117,8 +129,19 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
         />
       </label>
 
-      <button className={styles.reserveBtn} onClick={handleReserve} disabled={!selectedInterval || guests < 1}>
-        Reservar
+      <button 
+        className={styles.reserveBtn} 
+        onClick={handleReserveClick} 
+        disabled={!selectedInterval || guests < 1 || isReserving}
+      >
+        {isReserving ? (
+          <>
+            <CircularProgress size={20} color="inherit" style={{ marginRight: 8 }} />
+            Creando reserva...
+          </>
+        ) : (
+          'Reservar'
+        )}
       </button>
 
       <button className={styles.closeBtn} onClick={() => setSelected(null)}>
