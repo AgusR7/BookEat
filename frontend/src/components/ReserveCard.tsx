@@ -2,6 +2,7 @@ import React from 'react';
 import styles from '../styles/ReserveCard.module.scss';
 import { Restaurant } from './Map';
 import { DatePicker } from '@mui/x-date-pickers';
+import { TRUE } from 'sass';
 
 interface Availability {
   start: number;
@@ -20,6 +21,7 @@ interface ReserveCardProps {
   handleReserve: () => void;
   setSelected: React.Dispatch<React.SetStateAction<Restaurant | null>>;
   message: string;
+  loading: boolean;
 }
 
 const ReserveCard: React.FC<ReserveCardProps> = ({
@@ -34,6 +36,7 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
   handleReserve,
   setSelected,
   message,
+  loading,
 }) => {
   if (!selected) return null;
 
@@ -75,6 +78,7 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
           <DatePicker
             value={dateForPickerValue} // Use the local Date object
             onChange={handleDateChange}
+            minDate={new Date()}
             slotProps={{
               textField: {
                 fullWidth: true,
@@ -93,6 +97,7 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
             onChange={(e) => setSelectedInterval(e.target.value)}
             className={styles.select}
           >
+            <option value='' disabled>Elegir el horario:</option>
             {availability.map((a) => {
               const dt = new Date(a.start);
               const h = String(dt.getHours()).padStart(2, '0');
@@ -117,7 +122,7 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
         />
       </label>
 
-      <button className={styles.reserveBtn} onClick={handleReserve} disabled={!selectedInterval || guests < 1}>
+      <button className={styles.reserveBtn} onClick={handleReserve} disabled={!selectedInterval || guests < 1 || loading}>
         Reservar
       </button>
 

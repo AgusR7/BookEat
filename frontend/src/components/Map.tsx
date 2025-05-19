@@ -41,6 +41,8 @@ export default function Map({ user }: MapProps) {
   );
   // Nuevo: estado para el centro del mapa
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: -34.9011, lng: -56.1645 });
+  const [loading,setLoading] = useState(false)
+  const [filteredAvailabilities,setFilteredAvailabilities] = useState()
 
   useEffect(() => {
     axios.get('/api/restaurants').then((res) => setRestaurants(res.data));
@@ -71,10 +73,11 @@ export default function Map({ user }: MapProps) {
           // If availability data is successfully fetched and not empty,
           // set the selectedInterval to the first available slot.
           if (res.data && res.data.length > 0) {
-            setSelectedInterval(res.data[0].start.toString());
+            setSelectedInterval('');
           } else {
             // If no availability, clear the selected interval
             setSelectedInterval('');
+            setAvailability(res.data)
           }
         })
         .catch(err => {
@@ -103,6 +106,7 @@ export default function Map({ user }: MapProps) {
 
   const handleReserve = async () => {
     setMessage('');
+    setLoading(true);
     try {
       const res = await axios.post(
         '/api/reservations',
@@ -118,8 +122,10 @@ export default function Map({ user }: MapProps) {
       window.dispatchEvent(new Event('reservation-made'));
       setMessage(`Reserva de ${requested_guests} personas confirmada`);
       setSelected(null);
+      setLoading(false)
     } catch (err: any) {
       setMessage(err.response?.data?.error || 'Error al reservar');
+      setLoading(false)
     }
   };
 
@@ -138,6 +144,15 @@ export default function Map({ user }: MapProps) {
             position={{ lat: Number(r.latitude), lng: Number(r.longitude) }}
             title={`${r.name} (${r.seats_total} asientos totales)`}
             onClick={() => handleMarkerClick(r)}
+            icon={{
+              fillColor: '#ff2d00',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeOpacity: 2,
+              strokeWeight: 2,
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 6,
+            }}
           />
         ))}
       </GoogleMap>
@@ -154,6 +169,7 @@ export default function Map({ user }: MapProps) {
           handleReserve={handleReserve}
           setSelected={setSelected}
           message={message}
+          loading={loading}
         />
     )}
 
