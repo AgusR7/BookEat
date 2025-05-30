@@ -106,7 +106,27 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
             onChange={(e) => setSelectedInterval(e.target.value)}
             className={styles.select}
           >
-            {availability.map((a) => {
+            {availability
+        .filter((a) => {
+              const now = new Date();
+              const selectedDate = new Date(date);
+              selectedDate.setDate(selectedDate.getDate() + 1); // corrige el desfase
+              const startDate = new Date(a.start);
+
+              const isSameDate = startDate.toDateString() === selectedDate.toDateString();
+              console.log('startdate',startDate.toDateString())
+              console.log('selected',selectedDate.toDateString())
+              if (!isSameDate) {
+                return false;
+              }
+
+              if (isSameDate) {
+                return startDate >= now;
+              }
+
+              return true;
+            })
+            .map((a) => {
               const dt = new Date(a.start);
               const h = String(dt.getHours()).padStart(2, '0');
               const m = String(dt.getMinutes()).padStart(2, '0');
@@ -118,8 +138,8 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
             })}
           </select>
         </label>
-      )}
-
+        )}
+        
       <label>
         Personas:
         <input
