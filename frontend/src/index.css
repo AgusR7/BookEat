@@ -2,13 +2,25 @@ body, html {
   margin: 0;
   padding: 0;
   font-family: Arial, sans-serif;
+  overflow: hidden;
+  width: 100%;
+  height: 100vh;
 }
 
 .App {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 20px;
+  /* max-width: 800px; */
+  width: 100%;
+  margin: 0;
+  padding: 0;
   text-align: center;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
 }
 
 button {
@@ -26,7 +38,7 @@ button {
 } */
 
 button:hover {
-  background: #8a8a8a;
+  background: #b2283e;
 }
 
 #buttons-navbar{
@@ -75,4 +87,8 @@ button:hover {
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
+}
+
+* {
+  box-sizing: border-box;
 }
