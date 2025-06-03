@@ -100,16 +100,18 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
 
       {availability.length > 0 && (
         <label>
-          Horario:
-          <select
+          Horario:          <select
             value={selectedInterval}
             onChange={(e) => setSelectedInterval(e.target.value)}
             className={styles.select}
           >
             {availability.map((a) => {
+              // Convert UTC timestamp to local restaurant time (UTC-3)
               const dt = new Date(a.start);
-              const h = String(dt.getHours()).padStart(2, '0');
-              const m = String(dt.getMinutes()).padStart(2, '0');
+              // Calculate local restaurant time by applying UTC-3 offset
+              const localTime = new Date(dt.getTime() - (3 * 60 * 60 * 1000));
+              const h = String(localTime.getUTCHours()).padStart(2, '0');
+              const m = String(localTime.getUTCMinutes()).padStart(2, '0');
               return (
                 <option key={a.start} value={a.start}>
                   {`${h}:${m}`} ({a.available_tables} mesas)

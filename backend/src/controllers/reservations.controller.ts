@@ -1,37 +1,17 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
 import { io } from '../sockets/occupancySocket';
-import { sendReservationConfirmationEmail, sendReservationCancellationEmail } from '../utils/mailer'; // Updated import
-
-// Type declarations for session
-declare module 'express-session' {
-  interface SessionData {
-    user?: {
-      id: number;
-      email: string;
-      name: string;
-      role: string;
-    };
-    restaurant?: {
-      id: number;
-      email: string;
-      name: string;
-      role: string;
-      restaurant_id: number;
-    };
-  }
-}
+import { sendReservationConfirmationEmail, sendReservationCancellationEmail } from '../utils/mailer';
 
 export const createReservation = async (req: Request, res: Response) => {
   // Check for session user (local auth) or OAuth user
-  const userSession = req.session.user || (req.isAuthenticated && req.isAuthenticated() ? req.user : null);
+  const userSession = (req.session as any).user || (req.isAuthenticated && req.isAuthenticated() ? (req as any).user : null);
   if (!userSession) return res.status(401).json({ error: 'Unauthorized' });
 
   // Ensure only customers can create reservations
   if (userSession.role !== 'user' && userSession.role !== 'customer') {
     return res.status(403).json({ error: 'Forbidden: Only customers can create reservations.' });
   }
-
   const { restaurant_id, reservation_at, guests } = req.body;
   // start time sent as epoch ms from client
   const start = new Date(reservation_at);
@@ -42,17 +22,31 @@ export const createReservation = async (req: Request, res: Response) => {
   // round to even number of seats
   const requestedGuests = Number(guests);
   const assignedGuests = requestedGuests % 2 ? requestedGuests + 1 : requestedGuests;
-  const OPEN_HOUR = 10, CLOSE_HOUR = 23, LAST_MINUTE = 30;
-  // El epoch viene en UTC; lo convertimos a hora local (UTC-3)
+  
+  // Constantes de horario del restaurante (hora local UTC-3)
+  const OPEN_HOUR = 10; // 10:00 AM
+  const CLOSE_HOUR = 23; // 11:00 PM  
+  const LAST_MINUTE = 30; // 11:30 PM is the last reservation time
+  const TZ_OFFSET_MS = -3 * 60 * 60 * 1000; // UTC-3 timezone in milliseconds
+  
+  // Convertir la timestamp UTC a hora local (UTC-3)
+  // The client sends UTC time, we need to check it against local restaurant hours
   const startUtc = new Date(reservation_at);
-  const localHour     = (startUtc.getUTCHours() + 24 - 3) % 24;   // 0-23
-  const localMinutes  =  startUtc.getUTCMinutes();
-  if (
-    localHour < OPEN_HOUR ||
-    localHour > CLOSE_HOUR ||
-    (localHour === CLOSE_HOUR && localMinutes > LAST_MINUTE)
-  ) {
-    return res.status(400).json({ error: 'Invalid reservation time' });
+  const startLocal = new Date(startUtc.getTime() + TZ_OFFSET_MS);
+  
+  // Get local hour and minutes (using UTC methods since we already adjusted the time)
+  const localHour = startLocal.getUTCHours();
+  const localMinutes = startLocal.getUTCMinutes();
+  
+  // Validar horarios de apertura (10:00 AM - 11:30 PM local time)
+  // Restaurant closes at 1:00 AM (01:00) so last reservation is at 11:30 PM (23:30)
+  const isAfterClosing = localHour > CLOSE_HOUR || (localHour === CLOSE_HOUR && localMinutes > LAST_MINUTE);
+  const isBeforeOpening = localHour < OPEN_HOUR;
+  
+  if (isBeforeOpening || isAfterClosing) {
+    return res.status(400).json({ 
+      error: 'Horario de reserva inválido. Las reservas están disponibles de 10:00 AM a 11:30 PM.' 
+    });
   }
   const end = new Date(start.getTime() + 90 * 60000); // 1h30
   const client = await db.connect();
@@ -130,7 +124,7 @@ export const createReservation = async (req: Request, res: Response) => {
 
 export const getReservations = async (req: Request, res: Response) => {
   // Check for session user (local auth) or OAuth user
-  const userSession = req.session.user || (req.isAuthenticated && req.isAuthenticated() ? req.user : null);
+  const userSession = (req.session as any).user || (req.isAuthenticated && req.isAuthenticated() ? (req as any).user : null);
   if (!userSession) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const { rows } = await db.query(
@@ -151,7 +145,7 @@ export const getReservations = async (req: Request, res: Response) => {
 
 export const deleteReservation = async (req: Request, res: Response) => {
   // Check for session user (local auth) or OAuth user
-  const userSession = req.session.user || (req.isAuthenticated && req.isAuthenticated() ? req.user : null);
+  const userSession = (req.session as any).user || (req.isAuthenticated && req.isAuthenticated() ? (req as any).user : null);
   if (!userSession) return res.status(401).json({ error: 'Unauthorized' });
   const id = Number(req.params.id);
   const client = await db.connect();
@@ -196,8 +190,8 @@ export const deleteReservation = async (req: Request, res: Response) => {
 // For now, let's assume it stays here and fix its auth logic if it were to be used by a client (which it shouldn't)
 // However, the correct confirmPresence is in restaurants.controller.ts and uses req.session.restaurant
 export const confirmPresence = async (req: Request, res: Response) => {
-  const userSession = req.session.user; // If a client could confirm presence, this would be the check
-  // const restaurantSession = req.session.restaurant; // If this was for restaurant
+  const userSession = (req.session as any).user; // If a client could confirm presence, this would be the check
+  // const restaurantSession = (req.session as any).restaurant; // If this was for restaurant
   
   // THIS IS LIKELY DEAD CODE OR MISPLACED as confirmPresence is handled by restaurants.controller.ts for restaurant users
   if (!userSession) { // Example if a client were to confirm, but this endpoint is likely not used by clients
