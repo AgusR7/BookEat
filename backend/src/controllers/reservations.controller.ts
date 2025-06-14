@@ -72,7 +72,7 @@ export const createReservation = async (req: Request, res: Response) => {
     const tablesTotal = Math.floor(seats_total / 2);
     const neededTables = Math.ceil(requestedGuests / 2);
     if (tablesTotal - usedTables < neededTables) {
-      return res.status(400).json({ error: 'Not enough tables in selected interval' });
+      return res.status(400).json({ error: 'No hay suficientes mesas en ese horario' });
     }
     // insert reservation and return all its data including user info
     const reservationInsertResult = await client.query(

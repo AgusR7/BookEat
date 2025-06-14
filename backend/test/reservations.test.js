@@ -143,7 +143,7 @@ describe('Reservations Controller', () => {
             });
             await ReservationsController.createReservation(mockRequest, mockResponse);
             expect(responseStatus).toBe(400);
-            expect(responseJson.error).toBe('Not enough tables in selected interval');
+            expect(responseJson.error).toBe('No hay suficientes mesas en ese horario');
             expect(mockDbClient.release).toHaveBeenCalledTimes(1);
         });
         it('should create a reservation successfully', async () => {
@@ -227,7 +227,7 @@ describe('Reservations Controller', () => {
             mockRequest.body.guests = 4; // Requires 2 tables
             await ReservationsController.createReservation(mockRequest, mockResponse);
             expect(responseStatus).toBe(400);
-            expect(responseJson.error).toBe('Not enough tables in selected interval');
+            expect(responseJson.error).toBe('No hay suficientes mesas en ese horario');
             expect(mockDbClient.release).toHaveBeenCalledTimes(1);
         });
         it('should return 500 if database query fails during insert', async () => {
