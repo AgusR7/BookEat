@@ -46,6 +46,7 @@ export interface Restaurant {
   email?: string;
   address?: string;
   tags?: string[];
+  neighborhood?: string;
 }
 
 interface MapProps {
@@ -69,6 +70,7 @@ export default function Map({ user }: MapProps) {
   const [message, setMessage] = useState(''); // For ReserveCard
   const socket = useSocket();
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: -34.9011, lng: -56.1645 });
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
   
   const [searchText, setSearchText] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -202,6 +204,21 @@ export default function Map({ user }: MapProps) {
     }
   };
 
+  const allNeighborhoods = Array.from(
+    new Set(restaurants.map(r => r.neighborhood).filter(Boolean))
+  ).sort();
+
+  useEffect(() => {
+    if (user) {
+        const params: any = {};
+        if (selectedNeighborhood) params.neighborhood = selectedNeighborhood;
+        if (selectedCategories.length === 1) params.tag = selectedCategories[0];
+
+        axios.get('/api/restaurants', { params }).then((res) => setRestaurants(res.data));
+      }
+    }, [user, selectedNeighborhood, selectedCategories]);
+
+
   const handleSearchByAvailability = async () => {
     if (!filterAvailabilityDate || !filterAvailabilityTime || filterAvailabilityGuests <= 0) {
       setAvailabilitySearchMessage('Por favor, seleccione fecha, hora y número de comensales válidos.');
@@ -305,7 +322,8 @@ export default function Map({ user }: MapProps) {
     const nameMatches = searchText === '' || r.name.toLowerCase().includes(searchText.toLowerCase());
     const tagsMatch = selectedCategories.length === 0 || 
                       (r.tags && selectedCategories.every(category => r.tags!.includes(category)));
-    return nameMatches && tagsMatch;
+    const neighborhoodMatch = !selectedNeighborhood || r.neighborhood === selectedNeighborhood;
+  return nameMatches && tagsMatch && neighborhoodMatch;
   });
 
 
@@ -381,6 +399,16 @@ export default function Map({ user }: MapProps) {
               }}
             />
           )}
+        />
+        <Autocomplete
+          options={allNeighborhoods}
+          value={selectedNeighborhood}
+          onChange={(event, newValue) => setSelectedNeighborhood(newValue ?? null)}
+          renderInput={(params) => (
+            <TextField {...params} label="Barrio" placeholder="Seleccionar barrio" size="small" />
+          )}
+          sx={{ width: '20%', minWidth: 150, flexShrink: 0 }}
+          clearOnEscape
         />
 
         {/* Availability Filter Button and Popover */}
