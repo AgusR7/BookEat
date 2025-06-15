@@ -198,7 +198,14 @@ export default function Map({ user }: MapProps) {
       setMessage(`Reserva de ${displayGuests} personas confirmada`);
       setSelected(null);
     } catch (err: any) {
-      setMessage(err.response?.data?.error || 'Error al reservar');
+      const serverMsg = err.response?.data?.error as string | undefined;
+      if (serverMsg &&
+          (serverMsg.includes('Not enough tables') ||
+           serverMsg.includes('No hay suficientes mesas'))) {
+        setMessage('No hay mesas disponibles en ese horario. Por favor elige otro.');
+      } else {
+        setMessage(serverMsg || 'Error al reservar');
+      }
     }
   };
 
