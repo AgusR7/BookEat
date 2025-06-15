@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { User } from '../hooks/useAuth';
 import { Height } from '@mui/icons-material';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 
 interface Reservation {
   id: number;
@@ -19,6 +21,11 @@ interface Props {
 const ReservationsList: React.FC<Props> = ({ user }) => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info' as 'success' | 'error' | 'info' | 'warning'
+  });
 
   const fetchReservations = () => {
     setLoading(true);
@@ -45,10 +52,20 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
     axios
       .delete(`/api/reservations/${id}`, { withCredentials: true })
       .then(() => {
-        window.alert('Reserva cancelada');
+        setSnackbar({
+          open: true,
+          message: 'Reserva cancelada',
+          severity: 'success'
+        });
         window.dispatchEvent(new Event('reservation-cancelled'));
       })
-      .catch((err) => window.alert(err.response?.data?.error || 'Error al cancelar'));
+      .catch((err) =>
+        setSnackbar({
+          open: true,
+          message: err.response?.data?.error || 'Error al cancelar',
+          severity: 'error'
+        })
+      );
   };
 
   if (loading) return <p>Cargando reservas...</p>;
@@ -79,6 +96,20 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
           </li>
         ))}
       </ul>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

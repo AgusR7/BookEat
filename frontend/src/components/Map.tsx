@@ -24,15 +24,16 @@ import Typography from '@mui/material/Typography'; // Optional: for titles in Po
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { es } from 'date-fns/locale'; // Importar el locale español
+import { format as formatDateFns } from 'date-fns'; // Importar format y renombrarlo
+
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert'; // For displaying messages
-import { format as formatDateFns } from 'date-fns'; // Ensure date-fns is installed
-import { es } from 'date-fns/locale'; // For Spanish locale in DatePicker
+import Alert from '@mui/material/Alert'; // Asegúrate que Alert está importado
 
 export interface Restaurant {
   id: number;
@@ -67,6 +68,14 @@ export default function Map({ user }: MapProps) {
   const [availability, setAvailability] = useState<{ start: number; available_tables: number }[]>([]); // For ReserveCard
   const [selectedInterval, setSelectedInterval] = useState(''); // For ReserveCard
   const [message, setMessage] = useState(''); // For ReserveCard
+  // Eliminar el estado snackbar
+  // const [snackbar, setSnackbar] = useState({
+  //   open: false,
+  //   message: '',
+  //   severity: 'info' as 'success' | 'error' | 'info' | 'warning'
+  // });
+  const [persistentNotification, setPersistentNotification] = useState<{ message: string; severity: 'success' | 'error' | 'info' | 'warning' } | null>(null);
+
   const socket = useSocket();
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: -34.9011, lng: -56.1645 });
   
@@ -180,6 +189,7 @@ export default function Map({ user }: MapProps) {
 
   const handleReserve = async () => {
     setMessage('');
+    setPersistentNotification(null); // Limpiar notificaciones previas
     try {
       const res = await axios.post(
         '/api/reservations',
@@ -193,19 +203,32 @@ export default function Map({ user }: MapProps) {
       const newReservation = res.data.reservation;
       const displayGuests = newReservation?.requested_guests || guests;
 
-      window.alert(`Reserva de ${displayGuests} personas confirmada`);
+      setPersistentNotification({
+        message: `Reserva de ${displayGuests} personas confirmada`,
+        severity: 'success'
+      });
       window.dispatchEvent(new Event('reservation-made'));
-      setMessage(`Reserva de ${displayGuests} personas confirmada`);
-      setSelected(null);
+      setTimeout(() => {
+        setSelected(null);
+        setPersistentNotification(null); // Ocultar después de mostrar y cerrar tarjeta
+      }, 3000); // Duración de la notificación antes de cerrar la tarjeta
     } catch (err: any) {
       const serverMsg = err.response?.data?.error as string | undefined;
+      setPersistentNotification({
+        message: serverMsg || 'Error al reservar',
+        severity: 'error'
+      });
+
       if (serverMsg &&
           (serverMsg.includes('Not enough tables') ||
            serverMsg.includes('No hay suficientes mesas'))) {
-        setMessage('No hay mesas disponibles en ese horario. Por favor elige otro.');
+        setMessage('No hay mesas disponibles en ese horario. Por favor elige otro.'); // Mensaje para ReserveCard
       } else {
-        setMessage(serverMsg || 'Error al reservar');
+        // setMessage(serverMsg || 'Error al reservar'); // Mensaje para ReserveCard si se desea
       }
+      setTimeout(() => {
+        setPersistentNotification(null);
+      }, 5000); // Duración de la notificación de error
     }
   };
 
@@ -518,9 +541,26 @@ export default function Map({ user }: MapProps) {
       <Box sx={{ 
         flexGrow: 1, 
         width: '100%',
-        height: '100%',  // Cambiado: asegura que tome toda la altura disponible
-        position: 'relative' // Add this for absolute positioning of the Alert
+        height: '100%',
+        position: 'relative' 
       }}>
+        {persistentNotification && (
+          <Alert
+            severity={persistentNotification.severity}
+            onClose={() => setPersistentNotification(null)} // Permite cierre manual
+            sx={{
+              position: 'absolute',
+              top: '20px', // Ajusta la posición vertical según necesites
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1300, // Asegurar que esté sobre otros elementos como el ReserveCard
+              minWidth: '300px',
+              boxShadow: 3,
+            }}
+          >
+            {persistentNotification.message}
+          </Alert>
+        )}
         {availabilitySearchMessage && (
           <Alert 
             severity={availabilitySearchMessage.includes("Error") || availabilitySearchMessage.includes("No se encontraron") ? "warning" : "info"} 
@@ -577,6 +617,21 @@ export default function Map({ user }: MapProps) {
           message={message} // ReserveCard's specific message
         />
       )}
+      {/* Eliminar el componente Snackbar */}
+      {/* <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar> */}
     </Box>
   );
 }
