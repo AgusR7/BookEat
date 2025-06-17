@@ -141,7 +141,7 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
               cursor: 'pointer'
             }}>
               Cancelar
-            </Button>
+            </button>
           </li>
         ))}
       </ul>
