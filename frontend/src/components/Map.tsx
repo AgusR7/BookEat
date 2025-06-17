@@ -55,6 +55,7 @@ export default function Map({ user }: MapProps) {
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: -34.9011, lng: -56.1645 });
   
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [searchText, setSearchText] = useState(''); // searchText state was already present
 
   const allCategories = Array.from(
     new Set(restaurants.flatMap(r => r.tags || []))
@@ -75,12 +76,7 @@ export default function Map({ user }: MapProps) {
     console.log('Map: Setting up occupancy_update listener');
     const handleOccupancyUpdate = ({ restaurant_id }: { restaurant_id: number }) => {
       console.log(`Map: Occupancy update received for restaurant ${restaurant_id}`);
-      // Re-fetch or update specific restaurant data if needed, for now, just a log
-      // To trigger a re-render if occupancy affects display (e.g. available seats shown on map),
-      // you might need to update the restaurant in the state.
-      // For simplicity, if occupancy changes might affect filtering or display, re-fetch or update.
-      // This example just ensures the component is aware, but doesn't change restaurant data structure.
-      setRestaurants(prev => prev.map(r => r.id === restaurant_id ? { ...r } : r)); // Basic re-render trigger
+      setRestaurants(prev => prev.map(r => r.id === restaurant_id ? { ...r } : r)); 
     };
 
     socket.on('occupancy_update', handleOccupancyUpdate);
@@ -142,7 +138,6 @@ export default function Map({ user }: MapProps) {
       );
       const newReservation = res.data.reservation;
       const displayGuests = newReservation?.requested_guests || guests;
-
       window.alert(`Reserva de ${displayGuests} personas confirmada`);
       window.dispatchEvent(new Event('reservation-made'));
       setMessage(`Reserva de ${displayGuests} personas confirmada`);
@@ -152,8 +147,6 @@ export default function Map({ user }: MapProps) {
     }
   };
 
-  const [searchText, setSearchText] = useState('');
-
   if (!isLoaded) return <p>Cargando mapa...</p>;
 
   const visibleRestaurants = filteredRestaurants.filter(r =>
@@ -161,27 +154,24 @@ export default function Map({ user }: MapProps) {
   );
 
   return (
-    <>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
       <Box sx={{
-        // margin: '1rem 0', // Replaced   // For alignment with ReservationsList
-        marginBottom: 0,      // To be "pegado" to the map (bottom aligned with map top)
         padding: '1rem',
         backgroundColor: 'white',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         display: 'flex',
         gap: 2,
         alignItems: 'center',
-        flexWrap: 'wrap',     // Allow wrapping if space is tight
-        width: '50%',         // Occupy half of the parent's width
-        // width: 'fit-content' // Removed
+        flexWrap: 'wrap',
+        width: '100%', // Asegurar que ocupe todo el ancho
+        flexShrink: 0, // Evitar que este Box se encoja
       }}>
         <TextField
           label="Buscar restaurante"
           variant="outlined"
           value={searchText}
           onChange={e => setSearchText(e.target.value)}
-          // sx={{ width: '25%', minWidth: 200 }} // Replaced
-          sx={{ flex: 1, minWidth: 200 }} // Take available space, respect minWidth
+          sx={{ flex: 1, minWidth: 200 }}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
@@ -212,7 +202,7 @@ export default function Map({ user }: MapProps) {
               {option}
             </li>
           )}
-          sx={{ flex: 1, minWidth: 250 }} // Take available space, respect minWidth
+          sx={{ flex: 1, minWidth: 250 }}
           renderInput={(params) => (
             <TextField 
               {...params} 
@@ -234,29 +224,31 @@ export default function Map({ user }: MapProps) {
         />
       </Box>
 
-      <GoogleMap
-        center={center}
-        zoom={12}
-        mapContainerStyle={{ height: '80vh', width: '100%' }}
-      >
-        {visibleRestaurants.map((r) => (
-          <MarkerF
-            key={r.id}
-            position={{ lat: Number(r.latitude), lng: Number(r.longitude) }}
-            title={`${r.name} (${r.seats_total/2} asientos totales)`}
-            onClick={() => handleMarkerClick(r)}
-            icon={{
-              fillColor: '#ff2d00',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeOpacity: 2,
-              strokeWeight: 2,
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 6,
-            }}
-          />
-        ))}
-      </GoogleMap>
+      <Box sx={{ flexGrow: 1, width: '100%', height: '100%' }}> {/* Contenedor para que el mapa crezca */}
+        <GoogleMap
+          center={center}
+          zoom={12}
+          mapContainerStyle={{ height: '100%', width: '100%' }} // El mapa ocupa el 100% de este Box
+        >
+          {visibleRestaurants.map((r) => (
+            <MarkerF
+              key={r.id}
+              position={{ lat: Number(r.latitude), lng: Number(r.longitude) }}
+              title={`${r.name} (${r.seats_total/2} asientos totales)`}
+              onClick={() => handleMarkerClick(r)}
+              icon={{
+                fillColor: '#ff2d00',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeOpacity: 2,
+                strokeWeight: 2,
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 6,
+              }}
+            />
+          ))}
+        </GoogleMap>
+      </Box>
       {selected && (
         <ReserveCard
           selected={selected}
@@ -272,6 +264,6 @@ export default function Map({ user }: MapProps) {
           message={message}
         />
       )}
-    </>
+    </Box>
   );
 }

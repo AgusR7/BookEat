@@ -1,94 +1,279 @@
-body, html {
+/* === RESET Y BASE === */
+* {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: Arial, sans-serif;
+}
+
+html {
+  font-size: 16px;
+  height: 100%;
+}
+
+/* Responsive font sizes */
+@media (max-width: 480px) {
+  html { font-size: 14px; }
+}
+
+@media (min-width: 1200px) {
+  html { font-size: 18px; }
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Arial', sans-serif !important;
+  line-height: 1.6;
+  color: #333 !important; /*  FORZAR texto oscuro */
+  background-color: #fafafa !important; /*  FORZAR fondo claro */
+  height: 100%;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   width: 100%;
-  height: 100vh;
 }
 
 .App {
-  /* max-width: 800px; */
+  height: 100%;
   width: 100%;
-  margin: 0;
-  padding: 0;
-  text-align: center;
-  height: 100vh;
   overflow: hidden;
+  text-align: center;
+  background-color: #fafafa !important; /*  FORZAR */
 }
 
 #root {
+  height: 100%;
   width: 100%;
-  height: 100vh;
   overflow: hidden;
+  background-color: #fafafa !important; /*  FORZAR */
 }
 
+/*  FORZAR colores en todas las tipografías */
+h1, h2, h3, h4, h5, h6, p, div {
+  color: #333 !important;
+}
+
+/*  FORZAR colores específicos para MUI */
+.MuiTypography-root {
+  color: #333 !important;
+}
+
+.MuiTypography-h6 {
+  color: #333 !important;
+}
+
+/* === BUTTONS === */
 button {
   cursor: pointer;
-  padding: 8px 12px;
+  padding: clamp(6px, 2vw, 12px) clamp(8px, 3vw, 16px);
   border: none;
-  border-radius: 4px;
-  background: #007bff;
-  color: #fff;
-  transition: background 0.3s;
+  border-radius: 8px;
+  background: #ff3b59; /*  Color primario */
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  transition: all 0.2s ease;
+  min-height: 44px;
+  font-weight: 500;
 }
-
-/* #logoutbutton {
-  margin: 1%;
-} */
 
 button:hover {
-  background: #b2283e;
+  background: #e5334a; /*  Hover más claro */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 59, 89, 0.3);
 }
 
-#buttons-navbar{
+button:active {
+  transform: translateY(0);
+}
+
+button:focus {
+  outline: 2px solid #ff3b59;
+  outline-offset: 2px;
+}
+
+/* Navbar buttons */
+#buttons-navbar {
   transition: color 0.2s;
-  margin-left: 1%;
+  margin-left: clamp(0.5%, 1vw, 1%);
   background: transparent;
+  min-height: 48px;
+  padding: clamp(8px, 2vw, 12px);
+  color: white !important; /*  Texto blanco en navbar */
 }
 
-#buttons-navbar:hover{
+#buttons-navbar:hover {
   cursor: pointer;
-  background: transparent;
-  color: rgb(177, 177, 177);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8) !important;
 }
 
+/* === MODAL === */
 .modal {
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  background: #fff !important; /*  Fondo blanco */
+  color: #333 !important; /*  Texto oscuro */
+  padding: clamp(16px, 4vw, 32px);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   z-index: 1000;
+  width: min(90vw, 500px);
+  max-height: 90vh;
+  overflow-y: auto;
+  backdrop-filter: blur(8px);
 }
 
+/*  Panel lateral específico */
+.reservation-panel {
+  background: #ffffff !important; /* Cambiado de rgba(255, 255, 255, 0.95) a blanco sólido */
+  color: #333 !important;
+  /* Opcional: Descomenta la siguiente línea para añadir una sombra y darle más profundidad */
+  /* box-shadow: 0 2px 10px rgba(0,0,0,0.1); */
+}
+
+.reservation-panel * {
+  color: #333 !important;
+}
+
+/* === RESERVATIONS LIST === */
 .reservations-list {
   text-align: left;
-  margin-top: 20px;
+  margin-top: clamp(12px, 3vw, 20px);
+  height: 100%;
+  overflow-y: auto;
 }
 
 .reservations-list h2 {
-  margin-bottom: 10px;
+  margin-bottom: clamp(8px, 2vw, 16px);
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
+  color: #333 !important; /*  Texto oscuro */
+  font-weight: 600;
 }
 
 .reservations-list ul {
   list-style: none;
   padding: 0;
-}
-
-.reservation-item {
-  margin-bottom: 10px;
+  gap: clamp(8px, 2vw, 12px);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+  flex-direction: column;
 }
 
-* {
-  box-sizing: border-box;
+/*  Items de reserva */
+.reservation-item {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1.5vw, 12px);
+  padding: clamp(12px, 3vw, 16px);
+  border: 1px solid #ff3b59; /* Cambiado de #e0e0e0 a #ff3b59 */
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9) !important; /*  Fondo blanco */
+  color: #333 !important; /*  Texto oscuro */
+  transition: all 0.2s ease;
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.reservation-item * {
+  color: #333 !important; /*  Forzar todo el texto */
+}
+
+.reservation-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-color: #ff3b59;
+}
+
+/* === RESPONSIVE BREAKPOINTS === */
+@media (min-width: 576px) {
+  .reservation-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+@media (min-width: 768px) {
+  .reservations-list {
+    padding-right: 8px;
+  }
+  
+  .reservation-item {
+    padding: 16px 20px;
+  }
+}
+
+@media (min-width: 992px) {
+  .reservations-list {
+    overflow-y: hidden;
+  }
+  
+  .reservation-item {
+    margin-bottom: 12px;
+  }
+}
+
+/* === CUSTOM SCROLLBAR === */
+.reservations-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.reservations-list::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+  border-radius: 3px;
+}
+
+.reservations-list::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.3);
+  border-radius: 3px;
+}
+
+.reservations-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0,0,0,0.5);
+}
+
+/* === UTILITY CLASSES === */
+@media (max-width: 599px) {
+  .hide-mobile { display: none !important; }
+}
+
+@media (min-width: 600px) and (max-width: 959px) {
+  .hide-tablet { display: none !important; }
+}
+
+@media (min-width: 960px) {
+  .hide-desktop { display: none !important; }
+}
+
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* === ACCESSIBILITY === */
+*:focus {
+  outline: 2px solid #ff3b59;
+  outline-offset: 2px;
+}
+
+@media (prefers-contrast: high) {
+  .reservation-item {
+    border: 2px solid #000;
+  }
+  
+  button {
+    border: 2px solid currentColor;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* Navbar sin border radius */
+.MuiAppBar-root {
+  border-radius: 0 !important;
 }
