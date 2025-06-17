@@ -198,6 +198,7 @@ export default function Map({ user }: MapProps) {
       const displayGuests = newReservation?.requested_guests || guests;
 
       setReservaConfirmadaMessage(`Reserva de ${displayGuests} personas confirmada`);
+
       window.dispatchEvent(new Event('reservation-made'));
       setMessage(`Reserva de ${displayGuests} personas confirmada`);
       setSelected(null);
@@ -323,8 +324,6 @@ export default function Map({ user }: MapProps) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Box sx={{
-        // margin: '1rem 0', // Replaced   // For alignment with ReservationsList
-        marginBottom: 0,      // To be "pegado" to the map (bottom aligned with map top)
         padding: '1rem',
         backgroundColor: 'white',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
