@@ -28,6 +28,14 @@ collectDefaultMetrics();
 const register = new client.Registry();
 collectDefaultMetrics({ register });
 
+// Define a counter for new reservations
+export const newReservationsCounter = new client.Counter({
+  name: 'new_reservations_total',
+  help: 'Total number of new reservations created',
+  labelNames: ['restaurant_id', 'restaurant_name'], // Add restaurant_name label
+});
+register.registerMetric(newReservationsCounter);
+
 // Expose /metrics endpoint
 app.get('/metrics', async (req, res) => {
   try {
