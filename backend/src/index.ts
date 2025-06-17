@@ -56,7 +56,7 @@ app.use(cors({
 }));
 
 const sessionMiddleware = session({
-  secret: process.env.JWT_SECRET || 'your-secret-key',
+  secret: process.env.JWT_SECRET || '73aacc7a-9603-4e93-94b8-b91b19f06397',
   resave: false,
   saveUninitialized: false,
   cookie: {
