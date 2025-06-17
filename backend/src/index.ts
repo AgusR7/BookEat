@@ -5,6 +5,7 @@ import express from 'express';
 import { Server } from 'socket.io';
 import passport from 'passport';
 import session from 'express-session';
+import client from 'prom-client'; // Added prom-client
 import './utils/passport';  // Passport configuration
 import restaurantsRouter from './routes/restaurants';
 import reservationsRouter from './routes/reservations';
@@ -18,6 +19,24 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
+// Prometheus metrics
+const collectDefaultMetrics = client.collectDefaultMetrics;
+collectDefaultMetrics();
+
+// Create a Registry to register the metrics
+const register = new client.Registry();
+collectDefaultMetrics({ register });
+
+// Expose /metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (ex) {
+    res.status(500).end(ex);
+  }
+});
 
 // Middleware
 app.use(express.json());
