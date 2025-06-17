@@ -80,7 +80,6 @@ export default function Map({ user }: MapProps) {
 
   const socket = useSocket();
   const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: -34.9011, lng: -56.1645 });
-  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string | null>(null);
   
   const [searchText, setSearchText] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -153,10 +152,13 @@ export default function Map({ user }: MapProps) {
   const timeSlots = generateTimeSlots();
 
   useEffect(() => {
-    if (user) {
-      axios.get('/api/restaurants').then((res) => setRestaurants(res.data));
-    }
-  }, [user]);
+  if (user) {
+    axios.get('/api/restaurants').then((res) => {
+      setRestaurants(res.data);
+      console.log("RESTS", res.data);
+    });
+  }
+}, [user]);
 
   useEffect(() => {
     console.log('Map: Setting up occupancy_update listener');
@@ -256,19 +258,15 @@ export default function Map({ user }: MapProps) {
     }
   };
 
-  const allNeighborhoods = Array.from(
-    new Set(restaurants.map(r => r.neighborhood).filter(Boolean))
-  ).sort();
+  const allTags = Array.from(new Set(restaurants.flatMap(r => r.tags || [])));
+  const allNeighborhoods = Array.from(new Set(restaurants.map(r => r.neighborhood).filter(Boolean)));
+  const allCategoryOptions = [...allTags, ...allNeighborhoods].sort();
 
   useEffect(() => {
     if (user) {
-        const params: any = {};
-        if (selectedNeighborhood) params.neighborhood = selectedNeighborhood;
-        if (selectedCategories.length === 1) params.tag = selectedCategories[0];
-
-        axios.get('/api/restaurants', { params }).then((res) => setRestaurants(res.data));
-      }
-    }, [user, selectedNeighborhood, selectedCategories]);
+      axios.get('/api/restaurants').then((res) => setRestaurants(res.data));
+    }
+  }, [user]);
 
 
   const handleSearchByAvailability = async () => {
@@ -326,10 +324,17 @@ export default function Map({ user }: MapProps) {
       // Further filter by selected availability tags
       let finalFilteredRestaurants = foundRestaurantsByTimeAndCapacity;
       if (filterAvailabilityTags.length > 0) {
-        finalFilteredRestaurants = foundRestaurantsByTimeAndCapacity.filter(restaurant =>
-          filterAvailabilityTags.every(tag => restaurant.tags?.includes(tag))
-        );
-      }
+          const tags = filterAvailabilityTags.filter(cat => allTags.includes(cat));
+          const neighborhoods = filterAvailabilityTags.filter(cat => allNeighborhoods.includes(cat));
+
+          finalFilteredRestaurants = foundRestaurantsByTimeAndCapacity.filter(restaurant => {
+            const hasAllTags = tags.every(tag => restaurant.tags?.includes(tag));
+            const inAnySelectedNeighborhood = neighborhoods.length === 0 || neighborhoods.includes(restaurant.neighborhood || '');
+            return hasAllTags && inAnySelectedNeighborhood;
+          });
+        }
+
+
 
       setRestaurantsMatchingAvailability(finalFilteredRestaurants);
       if (finalFilteredRestaurants.length === 0) {
@@ -370,13 +375,20 @@ export default function Map({ user }: MapProps) {
 
   let baseRestaurantList = availabilityFilterActive ? restaurantsMatchingAvailability : restaurants;
 
+  const selectedTags = selectedCategories.filter(cat => allTags.includes(cat));
+  const selectedNeighborhoods = selectedCategories.filter(cat => allNeighborhoods.includes(cat));
+
   const visibleRestaurants = baseRestaurantList.filter(r => {
-    const nameMatches = searchText === '' || r.name.toLowerCase().includes(searchText.toLowerCase());
-    const tagsMatch = selectedCategories.length === 0 || 
-                      (r.tags && selectedCategories.every(category => r.tags!.includes(category)));
-    const neighborhoodMatch = !selectedNeighborhood || r.neighborhood === selectedNeighborhood;
-  return nameMatches && tagsMatch && neighborhoodMatch;
-  });
+  const nameMatches = searchText === '' || r.name.toLowerCase().includes(searchText.toLowerCase());
+
+  const hasAllSelectedTags = selectedTags.every(tag => r.tags?.includes(tag));
+  const matchesAnyNeighborhood = selectedNeighborhoods.length === 0 || selectedNeighborhoods.includes(r.neighborhood || '');
+
+  const tagsMatch = hasAllSelectedTags && matchesAnyNeighborhood;
+
+
+  return nameMatches && tagsMatch;
+});
 
 
   return (
@@ -410,14 +422,14 @@ export default function Map({ user }: MapProps) {
         
         <Autocomplete
           multiple
-          id="categories-filter-checkboxes"
-          options={allCategories}
+          id="combined-categories-filter"
+          options={allCategoryOptions}
           value={selectedCategories}
           disableCloseOnSelect
           size="small"
-          getOptionLabel={(option) => option}
+          getOptionLabel={(option) => option || ''}
           onChange={(event, newValue) => {
-            setSelectedCategories(newValue);
+            setSelectedCategories(newValue.filter((v): v is string => typeof v === 'string'));
           }}
           renderOption={(props, option, { selected }) => (
             <li {...props}>
@@ -430,12 +442,12 @@ export default function Map({ user }: MapProps) {
               {option}
             </li>
           )}
-          sx={{ width: '20%', minWidth: 150, flexShrink: 0 }} 
+          sx={{ width: '25%', minWidth: 200, flexShrink: 0 }}
           renderInput={(params) => (
             <TextField 
               {...params} 
-              label="Filtrar por categorías" 
-              placeholder={selectedCategories.length > 0 ? "" : "Categorías"}
+              label="Filtrar por categoría o barrio" 
+              placeholder={selectedCategories.length > 0 ? "" : "Categorías/Barrio"}
               InputProps={{
                 ...params.InputProps,
                 startAdornment: (
@@ -443,23 +455,14 @@ export default function Map({ user }: MapProps) {
                     <InputAdornment position="start" sx={{ pl: 0.5, color: 'action.active', mr: -0.5 }}>
                       <FilterListIcon />
                     </InputAdornment>
-                    {params.InputProps.startAdornment} 
+                    {params.InputProps.startAdornment}
                   </>
                 ),
               }}
             />
           )}
         />
-        <Autocomplete
-          options={allNeighborhoods}
-          value={selectedNeighborhood}
-          onChange={(event, newValue) => setSelectedNeighborhood(newValue ?? null)}
-          renderInput={(params) => (
-            <TextField {...params} label="Barrio" placeholder="Seleccionar barrio" size="small" />
-          )}
-          sx={{ width: '20%', minWidth: 150, flexShrink: 0 }}
-          clearOnEscape
-        />
+        
 
         {/* Availability Filter Button and Popover */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
@@ -534,7 +537,7 @@ export default function Map({ user }: MapProps) {
             <Autocomplete
               multiple
               id="availability-tags-filter"
-              options={allCategories}
+              options={allCategoryOptions}
               value={filterAvailabilityTags}
               disableCloseOnSelect
               size="small"
