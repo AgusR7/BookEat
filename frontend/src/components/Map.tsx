@@ -193,7 +193,7 @@ export default function Map({ user }: MapProps) {
       const newReservation = res.data.reservation;
       const displayGuests = newReservation?.requested_guests || guests;
 
-      window.alert(`Reserva de ${displayGuests} personas confirmada`);
+      setAvailabilitySearchMessage(`Reserva de ${displayGuests} personas confirmada`);
       window.dispatchEvent(new Event('reservation-made'));
       setMessage(`Reserva de ${displayGuests} personas confirmada`);
       setSelected(null);
