@@ -37,7 +37,17 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
   message,
 }) => {
   const [isReserving, setIsReserving] = useState(false);
+  const [guestInput, setGuestInput] = useState(guests.toString());
+  const [guestError, setGuestError] = useState('');
 
+  React.useEffect(() => {
+    setGuestInput(guests ? guests.toString() : '');
+    if (guests < 1) {
+      setGuestError('El número de personas debe ser al menos 1.');
+    } else {
+      setGuestError('');
+    }
+  }, [guests]);  
   if (!selected) return null;
 
   const handleDateChange = (newDate: Date | null) => {
@@ -147,16 +157,33 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
         Personas:
         <input
           type="number"
-          value={guests}
-          onChange={(e) => setGuests(Number(e.target.value))}
+          min={1} // Ayuda a prevenir negativos en algunos navegadores
+          value={guestInput}
+          onChange={(e) => {
+            const value = e.target.value;
+            setGuestInput(value); // Actualizar el input visualmente
+            const num = parseInt(value, 10);
+
+            if (value === '' || isNaN(num)) { // Si está vacío o no es un número
+              setGuests(1); // Opcional: resetear a 1 o manejar como prefieras
+              setGuestError('Por favor, ingrese un número válido.');
+            } else if (num < 1) {
+              setGuests(1); // Corregir el estado guests a 1
+              setGuestError('El número de personas no puede ser menor a 1.');
+            } else {
+              setGuests(num);
+              setGuestError(''); // Limpiar error si el número es válido
+            }
+          }}
           className={styles.input}
         />
       </label>
+      {guestError && <p className={styles.errorMessage} style={{ color: 'red', fontSize: '0.8em' }}>{guestError}</p>}
 
       <button 
         className={styles.reserveBtn} 
         onClick={handleReserveClick} 
-        disabled={!selectedInterval || guests < 1 || isReserving}
+        disabled={!selectedInterval || guests < 1 || isReserving || !!guestError}
       >
         {isReserving ? (
           <>

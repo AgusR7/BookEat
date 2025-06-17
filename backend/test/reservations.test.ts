@@ -243,7 +243,7 @@ describe('Reservations Controller', () => {
         await ReservationsController.createReservation(mockRequest as Request, mockResponse as Response);
 
         expect(responseStatus).toBe(400);
-        expect(responseJson.error).toBe('Not enough tables in selected interval');
+        expect(responseJson.error).toBe('No hay suficientes mesas en ese horario');
         expect(mockDbClient.release).toHaveBeenCalledTimes(1);
     });
     
