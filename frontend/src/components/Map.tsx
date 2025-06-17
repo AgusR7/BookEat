@@ -19,6 +19,7 @@ import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import Popover from '@mui/material/Popover'; // Added Popover
 import Typography from '@mui/material/Typography'; // Optional: for titles in Popover
+import CheckIcon from '@mui/icons-material/Check';
 
 // Add these imports
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -91,6 +92,9 @@ export default function Map({ user }: MapProps) {
   const [restaurantsMatchingAvailability, setRestaurantsMatchingAvailability] = useState<Restaurant[]>([]);
   const [isSearchingAvailability, setIsSearchingAvailability] = useState<boolean>(false);
   const [availabilitySearchMessage, setAvailabilitySearchMessage] = useState<string>('');
+
+  // Reserva confirmada message
+  const [reservaConfirmadaMessage, setReservaConfirmadaMessage] = useState<string>('');
 
   // State for Popover
   const [availabilityFilterAnchorEl, setAvailabilityFilterAnchorEl] = useState<null | HTMLElement>(null);
@@ -342,8 +346,6 @@ export default function Map({ user }: MapProps) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Box sx={{
-        // margin: '1rem 0', // Replaced   // For alignment with ReservationsList
-        marginBottom: 0,      // To be "pegado" to the map (bottom aligned with map top)
         padding: '1rem',
         backgroundColor: 'white',
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
@@ -576,6 +578,23 @@ export default function Map({ user }: MapProps) {
             onClose={() => setAvailabilitySearchMessage('')}
           >
             {availabilitySearchMessage}
+          </Alert>
+        )}
+        {reservaConfirmadaMessage && (
+          <Alert 
+            icon={<CheckIcon fontSize="inherit" />} severity="success"
+            sx={{ 
+              position: 'absolute',
+              top: '10px', // Adjust as needed
+              left: '50%',
+              transform: 'translateX(-50%)', // Center the alert
+              zIndex: 10, // Ensure it's above the map
+              minWidth: '300px', // Optional: for better readability
+              boxShadow: 3, // Optional: add some shadow
+            }}
+            onClose={() => setReservaConfirmadaMessage('')}
+          >
+            {reservaConfirmadaMessage}
           </Alert>
         )}
         <GoogleMap

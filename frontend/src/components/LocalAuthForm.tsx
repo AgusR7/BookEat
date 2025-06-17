@@ -186,7 +186,33 @@ const LocalAuthForm: React.FC = () => {
         value={tabValue}
         onChange={handleTabChange}
         variant="fullWidth"
-        sx={{ borderBottom: 1, borderColor: 'divider' }}
+        sx={{
+          borderBottom: 1, // Mantiene la línea divisoria general debajo de las pestañas
+          borderColor: 'divider',
+          '& .MuiTabs-indicator': {
+            backgroundColor: 'primary.main', // Esta es la línea de color debajo de la pestaña activa
+            height: '3px', // Puedes ajustar el grosor de la línea si lo deseas
+          },
+          '& .MuiTab-root': {
+            textTransform: 'none', // Evita que el texto se ponga en mayúsculas
+            fontWeight: 500,
+            color: 'text.secondary', // Color del texto para pestañas inactivas (ej. gris)
+            backgroundColor: 'transparent', // Asegura que no haya fondo por defecto
+            '&.Mui-selected': {
+              color: 'primary.main', // Color del texto para la pestaña activa (ej. rojo)
+              fontWeight: 600, // Opcional: texto un poco más grueso para la activa
+              backgroundColor: 'transparent', // Importante: sin color de fondo para la pestaña activa
+            },
+            '&:not(.Mui-selected):hover': {
+              color: 'primary.main', // Color del texto de la pestaña inactiva al pasar el cursor
+              backgroundColor: 'transparent', // Sin fondo al pasar el cursor
+            },
+            // Eliminar cualquier efecto de ripple que pueda parecer un fondo si no se desea
+            // '& .MuiTouchRipple-root': {
+            //   display: 'none',
+            // }
+          },
+        }}
       >
         <Tab label="Iniciar Sesión" />
         <Tab label="Registrarse" />
@@ -230,7 +256,7 @@ const LocalAuthForm: React.FC = () => {
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ mt: 3, mb: 2, color: '#fff' }} // Añadido color: '#fff'
           >
             Iniciar Sesión
           </Button>
@@ -280,7 +306,7 @@ const LocalAuthForm: React.FC = () => {
             type="submit"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ mt: 3, mb: 2, color: '#fff' }} // Añadido color: '#fff'
           >
             Registrarse
           </Button>
@@ -318,4 +344,4 @@ const LocalAuthForm: React.FC = () => {
   );
 };
 
-export default LocalAuthForm; 
+export default LocalAuthForm;
