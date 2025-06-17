@@ -99,6 +99,24 @@ export default function Map({ user }: MapProps) {
   // State for Popover
   const [availabilityFilterAnchorEl, setAvailabilityFilterAnchorEl] = useState<null | HTMLElement>(null);
 
+  useEffect(() => {
+    const handleReservationCancelled = () => {
+      setPersistentNotification({
+        message: 'Reserva cancelada exitosamente',
+        severity: 'info'
+      });
+      setTimeout(() => {
+        setPersistentNotification(null);
+      }, 3000);
+    };
+
+    window.addEventListener('reservation-cancelled', handleReservationCancelled);
+
+    return () => {
+      window.removeEventListener('reservation-cancelled', handleReservationCancelled);
+    };
+  }, []);
+
   const handleOpenAvailabilityPopover = (event: React.MouseEvent<HTMLElement>) => {
     setAvailabilityFilterAnchorEl(event.currentTarget);
   };
@@ -208,7 +226,7 @@ export default function Map({ user }: MapProps) {
       const displayGuests = newReservation?.requested_guests || guests;
 
       setPersistentNotification({
-        message: `Reserva de ${displayGuests} personas confirmada`,
+        message: `Reserva para ${displayGuests} persona(s) confirmada`,
         severity: 'success'
       });
       window.dispatchEvent(new Event('reservation-made'));
@@ -556,7 +574,8 @@ export default function Map({ user }: MapProps) {
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 1300, // Asegurar que esté sobre otros elementos como el ReserveCard
-              minWidth: '300px',
+              width: 'fit-content',
+              textAlign: 'center',
               boxShadow: 3,
             }}
           >

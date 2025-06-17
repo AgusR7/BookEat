@@ -4,6 +4,12 @@ import { User } from '../hooks/useAuth';
 import { Height } from '@mui/icons-material';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 
 interface Reservation {
   id: number;
@@ -26,6 +32,8 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
     message: '',
     severity: 'info' as 'success' | 'error' | 'info' | 'warning'
   });
+  const [openCancelDialog, setOpenCancelDialog] = useState(false);
+  const [selectedReservationId, setSelectedReservationId] = useState<number | null>(null);
 
   const fetchReservations = () => {
     setLoading(true);
@@ -48,24 +56,34 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
   }, []);
 
   const handleCancel = (id: number) => {
-    if (!window.confirm('¿Seguro que desea cancelar esta reserva?')) return;
-    axios
-      .delete(`/api/reservations/${id}`, { withCredentials: true })
-      .then(() => {
-        setSnackbar({
-          open: true,
-          message: 'Reserva cancelada',
-          severity: 'success'
-        });
-        window.dispatchEvent(new Event('reservation-cancelled'));
-      })
-      .catch((err) =>
-        setSnackbar({
-          open: true,
-          message: err.response?.data?.error || 'Error al cancelar',
-          severity: 'error'
+    setSelectedReservationId(id);
+    setOpenCancelDialog(true);
+  };
+
+  const confirmCancel = () => {
+    if (selectedReservationId) {
+      axios
+        .delete(`/api/reservations/${selectedReservationId}`, { withCredentials: true })
+        .then(() => {
+          setSnackbar({
+            open: true,
+            message: 'Reserva cancelada',
+            severity: 'success'
+          });
+          window.dispatchEvent(new Event('reservation-cancelled'));
         })
-      );
+        .catch((err) =>
+          setSnackbar({
+            open: true,
+            message: err.response?.data?.error || 'Error al cancelar',
+            severity: 'error'
+          })
+        )
+        .finally(() => {
+          setOpenCancelDialog(false);
+          setSelectedReservationId(null);
+        });
+    }
   };
 
   if (loading) return <p>Cargando reservas...</p>;
@@ -90,9 +108,9 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
         {reservations.map((r) => (
           <li key={r.id} style={{ marginBottom: 10 }}>
             {r.restaurant_name} - {formatDate(r.reservation_at)} - {r.requested_guests} personas
-            <button onClick={() => handleCancel(r.id)} style={{ marginLeft: '10px' }}>
+            <Button onClick={() => handleCancel(r.id)} style={{ marginLeft: '10px' }} variant="outlined" color="error" size="small">
               Cancelar
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
@@ -110,6 +128,27 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      <Dialog
+        open={openCancelDialog}
+        onClose={() => setOpenCancelDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          {"Confirmar Cancelación"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            ¿Seguro que desea cancelar esta reserva?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCancelDialog(false)}>No</Button>
+          <Button onClick={confirmCancel} autoFocus>
+            Sí
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
