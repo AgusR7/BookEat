@@ -65,15 +65,46 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
   };
 
   return (
-    <div style={{ 
-      marginTop: 20
-    }}>
-      <h2>Mis Reservas</h2>
-      <ul>
+    <div style={{ marginTop: 20, maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
+      <h2 style={{ marginBottom: '1rem' }}>Mis Reservas</h2>
+      
+      <ul style={{
+        maxHeight: '80vh',
+        overflowY: 'auto',
+        padding: 0,
+        margin: 0,
+        listStyle: 'none'
+      }}>
         {reservations.map((r) => (
-          <li key={r.id} style={{ marginBottom: 10 }}>
-            {r.restaurant_name} - {formatDate(r.reservation_at)} - {r.requested_guests} personas
-            <button onClick={() => handleCancel(r.id)} style={{ marginLeft: '10px' }}>
+          <li key={r.id} style={{
+            background: '#fff',
+            padding: '1rem',
+            marginBottom: '10px',
+            borderRadius: '10px',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem'
+          }}>
+            <div>
+              <strong>{r.restaurant_name}</strong>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                {formatDate(r.reservation_at)}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                {r.requested_guests} persona(s)
+              </div>
+            </div>
+            <button onClick={() => handleCancel(r.id)} style={{
+              backgroundColor: 'red',
+              color: 'white',
+              border: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '8px',
+              fontSize: '0.9rem',
+              cursor: 'pointer'
+            }}>
               Cancelar
             </button>
           </li>
@@ -81,6 +112,7 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
       </ul>
     </div>
   );
+
 };
 
 export default ReservationsList;
