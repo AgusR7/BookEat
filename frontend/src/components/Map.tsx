@@ -155,7 +155,6 @@ export default function Map({ user }: MapProps) {
   if (user) {
     axios.get('/api/restaurants').then((res) => {
       setRestaurants(res.data);
-      console.log("RESTS", res.data);
     });
   }
 }, [user]);
