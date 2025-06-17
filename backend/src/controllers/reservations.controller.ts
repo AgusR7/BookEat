@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../db';
 import { io } from '../sockets/occupancySocket';
 import { sendReservationConfirmationEmail, sendReservationCancellationEmail } from '../utils/mailer';
+import { newReservationsCounter } from '../index'; // Import the counter
 
 export const createReservation = async (req: Request, res: Response) => {
   // Check for session user (local auth) or OAuth user
@@ -83,6 +84,12 @@ export const createReservation = async (req: Request, res: Response) => {
     );
 
     const newReservationData = reservationInsertResult.rows[0];
+
+    // Increment the new reservations counter
+    newReservationsCounter.inc({ 
+      restaurant_id: newReservationData.restaurant_id.toString(),
+      restaurant_name: restaurantName // Add restaurant name as a label
+    });
 
     // Construct the reservation object to be sent via socket, including user details
     const reservationForSocket: any = {

@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { User } from '../hooks/useAuth';
 import { Height } from '@mui/icons-material';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 
 interface Reservation {
   id: number;
@@ -19,6 +27,13 @@ interface Props {
 const ReservationsList: React.FC<Props> = ({ user }) => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'info' as 'success' | 'error' | 'info' | 'warning'
+  });
+  const [openCancelDialog, setOpenCancelDialog] = useState(false);
+  const [selectedReservationId, setSelectedReservationId] = useState<number | null>(null);
 
   const fetchReservations = () => {
     setLoading(true);
@@ -41,14 +56,34 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
   }, []);
 
   const handleCancel = (id: number) => {
-    if (!window.confirm('¿Seguro que desea cancelar esta reserva?')) return;
-    axios
-      .delete(`/api/reservations/${id}`, { withCredentials: true })
-      .then(() => {
-        window.alert('Reserva cancelada');
-        window.dispatchEvent(new Event('reservation-cancelled'));
-      })
-      .catch((err) => window.alert(err.response?.data?.error || 'Error al cancelar'));
+    setSelectedReservationId(id);
+    setOpenCancelDialog(true);
+  };
+
+  const confirmCancel = () => {
+    if (selectedReservationId) {
+      axios
+        .delete(`/api/reservations/${selectedReservationId}`, { withCredentials: true })
+        .then(() => {
+          setSnackbar({
+            open: true,
+            message: 'Reserva cancelada',
+            severity: 'success'
+          });
+          window.dispatchEvent(new Event('reservation-cancelled'));
+        })
+        .catch((err) =>
+          setSnackbar({
+            open: true,
+            message: err.response?.data?.error || 'Error al cancelar',
+            severity: 'error'
+          })
+        )
+        .finally(() => {
+          setOpenCancelDialog(false);
+          setSelectedReservationId(null);
+        });
+    }
   };
 
   if (loading) return <p>Cargando reservas...</p>;
@@ -106,10 +141,45 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
               cursor: 'pointer'
             }}>
               Cancelar
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+      <Dialog
+        open={openCancelDialog}
+        onClose={() => setOpenCancelDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">
+          {"Confirmar Cancelación"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            ¿Seguro que desea cancelar esta reserva?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenCancelDialog(false)}>No</Button>
+          <Button onClick={confirmCancel} autoFocus>
+            Sí
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 

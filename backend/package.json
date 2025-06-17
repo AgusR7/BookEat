@@ -23,6 +23,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.12.2",
+    "prom-client": "^15.1.2",
     "socket.io": "^4.7.4",
     "ts-jest": "^29.3.2"
   },
