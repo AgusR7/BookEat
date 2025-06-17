@@ -104,6 +104,27 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
                 size: 'small',
                 className: styles.datePickerInput
               },
+              openPickerButton: { // Props para el botón del icono del calendario
+                sx: {
+                  '&:focus': {
+                    outline: 'none', // Elimina el contorno de foco
+                    boxShadow: 'none', // Elimina cualquier sombra de foco si la hubiera
+                  }
+                }
+              },
+              day: { // Props para cada componente de día en el calendario
+                sx: {
+                  // Estilo para el día seleccionado
+                  '&.Mui-selected': {
+                    borderRadius: '50%', // Asegura que el borde sea perfectamente circular
+                    // MUI PickersDay está diseñado para ser cuadrado, por lo que borderRadius: '50%' debería crear un círculo.
+                  },
+                  // Estilo para el día de hoy (si no está seleccionado)
+                  '&.MuiPickersDay-today:not(.Mui-selected)': {
+                    borderRadius: '50%', // Asegura que el borde del día de hoy también sea circular
+                  }
+                }
+              }
             }}
           />
       </label>
