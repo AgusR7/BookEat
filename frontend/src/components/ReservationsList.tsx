@@ -105,12 +105,13 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
       
       <ul style={{
         maxHeight: '80vh',
-        // overflowY: 'auto',
+        overflowY: 'auto',
         padding: 0,
         margin: 0,
         listStyle: 'none',
         border: '1px solid rgba(0, 0, 0, 0.1)',
         borderRadius: '8px',
+        msOverflowY: 'scroll'
       }}>
         {reservations.map((r) => (
           <li key={r.id} style={{
