@@ -5,7 +5,6 @@ import Typography from '@mui/material/Typography';
 import Map from './Map';
 import ReservationsList from './ReservationsList';
 import { User } from '../hooks/useAuth';
-import image from '../../img/img-2025-05-05-18-39-25.png';
 
 interface MapGridProps {
   user: User;
@@ -17,19 +16,15 @@ const MapGrid: React.FC<MapGridProps> = ({ user }) => {
       component="section"
       sx={{
         position: 'fixed',
-        top: { xs: 56, sm: 64 }, // altura responsive del navbar
+        // top: { xs: 56, sm: 64 }, // altura responsive del navbar
         left: 0,
         right: 0,
         bottom: 0,
         display: 'flex',
-        flexDirection: { xs: 'column', lg: 'row' }, // Stack en mobile, row en desktop
+        flexDirection: { xs: 'column', lg: 'row', padding: "2rem" }, // Stack en mobile, row en desktop
         overflow: 'hidden',
-        
-        // fondo responsive
-        backgroundImage: `url(${image})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
+        backgroundColor: 'white', // Fondo blanco con opacidad
+        top: 60
       }}
     >
       {/* Overlay */}
@@ -37,7 +32,6 @@ const MapGrid: React.FC<MapGridProps> = ({ user }) => {
         sx={{
           position: 'absolute',
           inset: 0, // más limpio que top/left/right/bottom
-          bgcolor: 'rgba(156, 156, 156, 0.4)',
           zIndex: 1,
         }}
       />
@@ -73,34 +67,12 @@ const MapGrid: React.FC<MapGridProps> = ({ user }) => {
             },
             minHeight: { xs: '200px', lg: 'auto' },
             maxHeight: { xs: '50vh', lg: 'none' },
-            bgcolor: 'rgba(255, 255, 255, 0.95) !important', //  Forzar
-            borderRight: { lg: '1px solid rgba(0, 0, 0, 0.1)' },
-            borderBottom: { xs: '1px solid rgba(0, 0, 0, 0.1)', lg: 'none' },
+            bgcolor: 'white !important',
+            borderRadius: '8px',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          {/* Header del panel */}
-          <Box 
-            sx={{ 
-              p: { xs: 1.5, sm: 2 },
-              borderBottom: '1px solid rgba(0,0,0,0.1)',
-              flexShrink: 0,
-              bgcolor: 'transparent !important', //  Forzar
-            }}
-          >
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                mb: 0,
-                fontSize: { xs: '1.1rem', sm: '1.25rem' },
-                color: '#333 !important', //  Forzar color oscuro
-                fontWeight: 600,
-              }}
-            >
-              Bienvenido, {user.email.split('@')[0]}!
-            </Typography>
-          </Box>
           
           {/* Lista de reservas - scroll inteligente */}
           <Box 
@@ -119,6 +91,7 @@ const MapGrid: React.FC<MapGridProps> = ({ user }) => {
           sx={{
             order: { xs: 1, lg: 2 },
             flex: 1, // Ocupa el resto del espacio disponible
+            margin: 5,
             height: { 
               xs: '50vh', // Mobile: 50% del viewport
               sm: '55vh', // Tablet: 55%

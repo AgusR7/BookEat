@@ -108,19 +108,20 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
         overflowY: 'auto',
         padding: 0,
         margin: 0,
-        listStyle: 'none'
+        listStyle: 'none',
+        border: '1px solid rgba(0, 0, 0, 0.1)',
+        borderRadius: '8px',
       }}>
         {reservations.map((r) => (
           <li key={r.id} style={{
             background: '#fff',
             padding: '1rem',
             marginBottom: '10px',
-            borderRadius: '10px',
-            boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            gap: '1rem'
+            gap: '1rem',
+            borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
           }}>
             <div>
               <strong>{r.restaurant_name}</strong>
@@ -132,7 +133,7 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
               </div>
             </div>
             <button onClick={() => handleCancel(r.id)} style={{
-              backgroundColor: 'red',
+              backgroundColor: '#FF3B59',
               color: 'white',
               border: 'none',
               padding: '0.5rem 1rem',

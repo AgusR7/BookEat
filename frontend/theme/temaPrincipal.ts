@@ -130,12 +130,12 @@ const temaPrincipal = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: ({ theme }) => ({
-          height: '56px',
+          height: '5%',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
           backdropFilter: 'blur(8px)',
           borderRadius: 0, 
           [theme.breakpoints.up('sm')]: {
-            height: '64px',
+            height: '5%%',
           },
         }),
       },
