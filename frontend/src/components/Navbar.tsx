@@ -14,6 +14,8 @@ import MenuItem from '@mui/material/MenuItem';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import { useAuth } from '../hooks/useAuth';
 import LogoutButton from './LogoutButton';
+import Logo from "../../img/logo_bookeat.png";
+import LogoWhite from "../../img/logo_bookeat_white.png";
 
 const pages = ['Inicio', 'Sobre Nosotros'];
 
@@ -82,8 +84,24 @@ function ResponsiveAppBar() {
               sx={{ display: { xs: 'block', md: 'none' } }}
             >
               <MenuItem onClick={() => { handleCloseNavMenu(); /* navigate to home */ }}>
-                <RestaurantIcon sx={{ mr: 1, color: 'text.primary' }} />
-                <Typography textAlign="center">BookEat</Typography>
+                <Box 
+            sx={{ 
+              display: { xs: 'flex', md: 'none' }, 
+              flexGrow: 1, 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              gap: 0.5,
+            }}
+          >
+            <Box
+            component="img"
+            sx={{
+            height: 56,
+            }}
+            alt="BookEat Logo"
+            src={LogoWhite}
+            />
+          </Box>
               </MenuItem>
               {pages.map((page) => (
                 <MenuItem key={page} onClick={() => { handleCloseNavMenu(); /* navigate to page */ }}>
@@ -100,32 +118,23 @@ function ResponsiveAppBar() {
             sx={{
               display: { xs: 'none', md: 'flex' },
               alignItems: 'center', 
-              color: 'white !important', 
               textTransform: 'none',
               padding: {md: '6px 12px', lg: '8px 16px'}, 
               marginRight: 2, 
               '&:hover': {
-                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                boxShadow: 'none'
               }
             }}
           >
-            <RestaurantIcon sx={{ color: 'white !important', mr: 1, fontSize: { md: '1.5rem', lg: '1.75rem' } }} />
-            <Typography
-              variant="h6"
-              noWrap
-              sx={{
-                fontFamily: 'sans-serif',
-                fontWeight: 700,
-                letterSpacing: '.1rem',
-                color: 'white !important', 
-                textDecoration: 'none',
-                fontSize: { md: '1.25rem', lg: '1.5rem' },
-                margin: 0, // Ensure no vertical margins from Typography variant
-                lineHeight: 1.3, // Adjust line-height for potentially better visual centering
-              }}
-            >
-              BookEat
-            </Typography>
+            
+            <Box
+            component="img"
+            sx={{
+            height: 64,
+            }}
+            alt="BookEat Logo"
+            src={Logo}
+            />
           </Button>
           
           {/* MOBILE - Centered BookEat Logo and Title */}
@@ -138,26 +147,17 @@ function ResponsiveAppBar() {
               gap: 0.5,
             }}
           >
-            <RestaurantIcon sx={{ color: 'white !important', fontSize: '1.5rem' }} />
-            <Typography
-              variant="h6"
-              noWrap
-              component="a"
-              href="/"
-              sx={{
-                fontFamily: 'sans-serif',
-                fontWeight: 700,
-                letterSpacing: '.1rem',
-                color: 'white !important', 
-                textDecoration: 'none',
-                fontSize: { xs: '1.1rem', sm: '1.25rem' },
-                margin: 0, // Ensure no vertical margins
-                lineHeight: 1.3, // Consistent line-height adjustment
-              }}
-            >
-              BookEat
-            </Typography>
+            <Box
+            component="img"
+            sx={{
+            height: 56,
+            }}
+            alt="BookEat Logo"
+            src={Logo}
+            />
           </Box>
+
+          
 
           {/* DESKTOP - Navigation Pages */}
           <Box 
