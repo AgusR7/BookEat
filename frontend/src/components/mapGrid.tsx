@@ -21,8 +21,9 @@ const MapGrid: React.FC<MapGridProps> = ({ user }) => {
         right: 0,
         bottom: 0,
         display: 'flex',
-        flexDirection: { xs: 'column', lg: 'row', padding: "2rem" }, // Stack en mobile, row en desktop
-        overflow: 'hidden',
+        flexDirection: { xs: 'column', lg: 'row'}, // Stack en mobile, row en desktop
+        padding: { xs: '3rem 0rem 2rem 0rem', lg: '2rem' },
+        overflow: { xs: 'scroll', lg: 'hidden' },
         backgroundColor: 'white', // Fondo blanco con opacidad
         top: 60
       }}
@@ -42,7 +43,7 @@ const MapGrid: React.FC<MapGridProps> = ({ user }) => {
           position: 'relative',
           display: 'flex',
           flexDirection: { xs: 'column', lg: 'row' },
-          height: '100%',
+          height: { xs: '100vh', lg: 'auto'},
           width: '100%',
           zIndex: 2, // encima del overlay
         }}

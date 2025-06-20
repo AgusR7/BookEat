@@ -105,7 +105,7 @@ const ReservationsList: React.FC<Props> = ({ user }) => {
       
       <ul style={{
         maxHeight: '80vh',
-        overflowY: 'auto',
+        // overflowY: 'auto',
         padding: 0,
         margin: 0,
         listStyle: 'none',
