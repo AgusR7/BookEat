@@ -230,6 +230,10 @@ docker-compose up --build
    - Permisos diferenciados según el rol
    - Estado visual de la conexión WebSocket
 
-4. **Hito 3** – Filtros, buscador y monitoreo  ✅ 
-
+4. **Hito 3** – Filtros, buscador, monitoreo y mejoras  ✅ 
+    - Campo de búsqueda por nombre de restaurantes
+    - Sistema de filtros para seleccionar por categorías
+    - Búsqueda por disponibilidad (fecha y hora)
+    - Monitoreo con Prometheus y Grafana
+    - Añadir al calendario de Google la reserva hecha via mail
 
