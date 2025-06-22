@@ -121,12 +121,44 @@ npm install # Si aún no lo has hecho y no usas Docker para pruebas
 npm test
 ```
 
-### 9. Notas sobre archivos ignorados (`.gitignore`)
+### 9. Monitoreo con Grafana (+ Prometheus)
+
+El backend expone métricas en el endpoint /metrics gracias al paquete prom-client.
+Docker Compose incluye servicios adicionales para recopilar y visualizar esas métricas:
+
+```bash
+prometheus:
+  image: prom/prometheus
+  volumes:
+    - ./prometheus:/etc/prometheus/
+  command:
+    - '--config.file=/etc/prometheus/prometheus.yml'
+  ports:
+    - "9090:9090"
+
+grafana:
+  image: grafana/grafana
+  environment:
+    - GF_SECURITY_ADMIN_USER=admin
+    - GF_SECURITY_ADMIN_PASSWORD=admin
+  volumes:
+    - ./grafana/provisioning:/etc/grafana/provisioning
+    - ./grafana/dashboards:/etc/grafana/dashboards
+  ports:
+    - "3000:3000"
+```
+
+Prometheus consulta periódicamente el endpoint /metrics para almacenar las métricas.
+Grafana se conecta a Prometheus (configuración en grafana/provisioning/datasources/prometheus.yml) y ofrece paneles listos para usar (carpeta grafana/dashboards/).
+
+Cuando levantas el proyecto con docker-compose up --build, además de backend, frontend y base de datos, también se inician los servicios de Prometheus (http://localhost:9090) y Grafana (http://localhost:3000) para supervisar el rendimiento de la aplicación.
+
+### 10. Notas sobre archivos ignorados (`.gitignore`)
 - Los archivos `.env`, `node_modules/`, `logs/`, y carpetas de configuración/editor no estarán presentes al clonar el repo.
 - Debes crear los `.env` manualmente (ver paso 3).
 - Las carpetas `node_modules/` se generan automáticamente al correr `npm install` (o al usar Docker).
 
-### 10. Estructura de carpetas
+### 11. Estructura de carpetas
 ```
 backend/                → Contiene la lógica del servidor Node.js + Express.
 ├── src/
@@ -198,6 +230,10 @@ docker-compose up --build
    - Permisos diferenciados según el rol
    - Estado visual de la conexión WebSocket
 
-4. **Hito 3** – NEXT
-
+4. **Hito 3** – Filtros, buscador, monitoreo y mejoras  ✅ 
+    - Campo de búsqueda por nombre de restaurantes
+    - Sistema de filtros para seleccionar por categorías
+    - Búsqueda por disponibilidad (fecha y hora)
+    - Monitoreo con Prometheus y Grafana
+    - Añadir al calendario de Google la reserva hecha via mail
 
