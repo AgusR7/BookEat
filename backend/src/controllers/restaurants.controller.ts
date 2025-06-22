@@ -3,10 +3,11 @@ import { db } from '../db';
 import { io } from '../sockets/occupancySocket';
 
 export const getAll = async (req: Request, res: Response) => {
-  const { tag } = req.query;
+  const { tag, neighborhood } = req.query;
 
   let query = `
-    SELECT r.id, r.name, r.latitude, r.longitude, r.description, r.seats_total, (r.seats_total/2)::int AS tables_total,
+    SELECT r.id, r.name, r.latitude, r.longitude, r.description, r.seats_total, r.neighborhood, 
+           (r.seats_total/2)::int AS tables_total,
       COALESCE(
         json_agg(t.name) FILTER (WHERE t.name IS NOT NULL), 
         '[]'
@@ -15,11 +16,22 @@ export const getAll = async (req: Request, res: Response) => {
     LEFT JOIN restaurant_tags rt ON r.id = rt.restaurant_id
     LEFT JOIN tags t ON rt.tag_id = t.id
   `;
+
+  const conditions: string[] = [];
   const params: any[] = [];
 
   if (tag) {
-    query += ` WHERE t.name = $1`;
+    conditions.push(`t.name = $${params.length + 1}`);
     params.push(tag);
+  }
+
+  if (neighborhood) {
+    conditions.push(`r.neighborhood = $${params.length + 1}`);
+    params.push(neighborhood);
+  }
+
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(' AND ')}`;
   }
 
   query += ` GROUP BY r.id`;
@@ -27,6 +39,7 @@ export const getAll = async (req: Request, res: Response) => {
   const { rows } = await db.query(query, params);
   res.json(rows);
 };
+
 
 export const getById = async (req: Request, res: Response) => {
   const { id } = req.params;

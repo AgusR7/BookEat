@@ -156,6 +156,67 @@ CREATE TABLE IF NOT EXISTS restaurant_tags (
     PRIMARY KEY (restaurant_id, tag_id)
 );
 
+
+--Filtro por barrios:
+-- Carrasco
+UPDATE restaurants SET neighborhood = 'Carrasco' WHERE name IN (
+  'Alquimista', 'Café Misterio', 'Charo', 'Casa Magnum', 'La Casa Violeta',
+  'García Carrasco', 'Tintos & Rubias Carrasco', 'Manzanar', 'La Panera Rosa',
+  'El Puesto', 'Cantina Rostand', 'Lo de Marcos', 'Lombardía', 'RIO Café Restaurant'
+);
+
+-- Cordón
+UPDATE restaurants SET neighborhood = 'Cordón' WHERE name IN (
+  'Café Gourmand', 'Escaramuza', 'Bakers Bar', 'Obrador Social Club', 'SU Bar',
+  'La Guinda', 'Plaza de Chueca', 'El Rastro Parrillita', 'Uno Catorce Café',
+  'Paraíso Café', 'Acevedo'
+);
+
+-- Buceo
+UPDATE restaurants SET neighborhood = 'Buceo' WHERE name IN (
+  'El Tío Bistró', 'Hard Rock Café Montevideo', 'Ramona WTC', 'La Vaca Parrilla',
+  'Yacht Club Uruguayo', 'El Italiano', 'Sudestada', 'La Fonda del Buceo'
+);
+
+-- Malvín
+UPDATE restaurants SET neighborhood = 'Malvín' WHERE name IN (
+  'Soprano Malvín', 'La Trillada', 'Decano Restaurante', 'Bar Michigan',
+  'Salmuera Café Bistró', 'Hong Kong Malvín', 'La Nueva Pascale', 'Club La Isla'
+);
+
+-- Punta Carretas
+UPDATE restaurants SET neighborhood = 'Punta Carretas' WHERE name IN (
+  'La Chingada Cantina', 'Pellegrin', 'Bar Tabaré', 'Casa Magnum Punta Carretas',
+  'García Punta Carretas', 'Francis Punta Carretas', 'La Perdiz',
+  'La Estacada', 'Bar Seven'
+);
+
+-- Pocitos
+UPDATE restaurants SET neighborhood = 'Pocitos' WHERE name IN (
+  'Fellini Pocitos', 'Carbonada', 'Tandory', 'Tintos & Rubias Pocitos',
+  'Expreso Pocitos', 'La Commedia', 'Bruta', 'Milajó', 'La Giraldita', 'Pistatxofusión'
+);
+
+-- Centro
+UPDATE restaurants SET neighborhood = 'Centro' WHERE name IN (
+  'El Fogón', 'Bar Facal', 'TANNAT Restaurant', 'Danubio Azul', 'Verne Business Café',
+  'Pacharán', 'Oro del Rhin Café', 'Flora'
+);
+
+-- Ciudad Vieja
+UPDATE restaurants SET neighborhood = 'Ciudad Vieja' WHERE name IN (
+  'Álvarez Bar', 'Primuseum', 'El Palenque', 'Jacinto', 'Es Mercat', 'El Chipirón',
+  'La Fonda', 'Estrecho', 'El Otro Es Mercat', 'Cabaña Verónica',
+  'Café Brasilero', 'Las Misiones'
+);
+
+-- Parque Rodó
+UPDATE restaurants SET neighborhood = 'Parque Rodó' WHERE name IN (
+  'Club del Pan', 'De Morondanga', 'La Milpa Taquería', 'Casa Fauno', 'Oriundo',
+  'Francachela', 'PyG Bar', 'Puesta del Sol', 'Sucré Salé', 'La Guinda'
+);
+-- Carrasco
+
 -- Etiquetas
 INSERT INTO tags (name) VALUES
 ('Parrilla'), ('Vegano'), ('Café'), ('Italiana'), ('Mariscos'), ('Bar'), ('Brunch');
@@ -166,9 +227,6 @@ INSERT INTO tags (name) VALUES
 -- 5 Mariscos
 -- 6 Bar
 
--- Relacionar restaurantes con etiquetas (mejora con 3-5 tags por restaurante)
-INSERT INTO restaurant_tags (restaurant_id, tag_id) VALUES
--- Carrasco
 -- Alquimista (1): Parrilla, Café, Bar
 (1, 1), (1, 3), (1, 6),
 -- Café Misterio (2): Café, Italiana, Brunch, Mariscos

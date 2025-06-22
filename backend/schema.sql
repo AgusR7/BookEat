@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
     longitude       DECIMAL(18,15) NOT NULL,
     seats_total     INT CHECK (seats_total > 0),
     -- seats_free manejada dinámicamente por intervalos
+    neighborhood    VARCHAR(100),
     created_at      TIMESTAMP DEFAULT NOW()
 );
 
