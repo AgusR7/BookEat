@@ -395,13 +395,13 @@ export default function Map({ user }: MapProps) {
       <Box sx={{
         padding: '1rem',
         backgroundColor: 'white',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         display: 'flex',
         gap: 1.5, // Adjusted gap
         alignItems: 'center',
         flexWrap: 'wrap',     // Allow wrapping if space is tight
         width: '100%',         
         flexShrink: 0,
+        borderRadius: '8px'
       }}>
         <TextField
           label="Buscar restaurante"
@@ -592,7 +592,8 @@ export default function Map({ user }: MapProps) {
         flexGrow: 1, 
         width: '100%',
         height: '100%',
-        position: 'relative' 
+        position: 'relative', 
+        marginTop: 5,
       }}>
         {persistentNotification && (
           <Alert
@@ -649,7 +650,7 @@ export default function Map({ user }: MapProps) {
         <GoogleMap
           center={center}
           zoom={12}
-          mapContainerStyle={{ height: '100%', width: '100%' }} // El mapa llena su contenedor
+          mapContainerStyle={{ height: '100%', width: '100%', borderRadius: '8px'}} // El mapa llena su contenedor
         >
           {visibleRestaurants.map((r) => (
             <MarkerF
@@ -669,8 +670,7 @@ export default function Map({ user }: MapProps) {
             />
           ))}
         </GoogleMap>
-      </Box>
-      {selected && (
+        {selected && (
         <ReserveCard
           selected={selected}
           availability={availability}
@@ -685,21 +685,7 @@ export default function Map({ user }: MapProps) {
           message={message} // ReserveCard's specific message
         />
       )}
-      {/* Eliminar el componente Snackbar */}
-      {/* <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar> */}
+      </Box>
     </Box>
   );
 }

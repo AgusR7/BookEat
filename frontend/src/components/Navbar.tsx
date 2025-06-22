@@ -46,7 +46,8 @@ function ResponsiveAppBar() {
       position="sticky" 
       color="primary"
       sx={{
-        height: { xs: 56, sm: 64 }, 
+        // height: { xs: 56, sm: 64 }, 
+        height: '100px',
         zIndex: (theme) => theme.zIndex.drawer + 1,
       }}
     >
@@ -205,7 +206,7 @@ function ResponsiveAppBar() {
                     width: { xs: 32, sm: 40 }, 
                     height: { xs: 32, sm: 40 },
                     fontSize: { xs: '0.875rem', sm: '1rem' },
-                    backgroundColor: user?.picture ? 'transparent' : 'secondary.main',
+                    backgroundColor: user?.picture,
                     fontWeight: 600,
                     color: 'primary.contrastText',
                   }}
