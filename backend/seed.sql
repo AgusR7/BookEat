@@ -156,35 +156,8 @@ CREATE TABLE IF NOT EXISTS restaurant_tags (
     PRIMARY KEY (restaurant_id, tag_id)
 );
 
--- Etiquetas
-INSERT INTO tags (name) VALUES
-('Parrilla'), ('Vegano'), ('Café'), ('Italiana'), ('Mariscos'), ('Bar'), ('Brunch');
--- 1 Parrilla
--- 2 Vegano
--- 3 Café
--- 4 Italiana
--- 5 Mariscos
--- 6 Bar
-
--- Relacionar restaurantes con etiquetas (ejemplo)
-INSERT INTO restaurant_tags (restaurant_id, tag_id) VALUES
-(1, 3), -- Alquimia: Café
-(1, 6), -- Alquimia: Bar
-(2, 1), -- Cafe Misterio : Cafe
-(2, 7), -- Café Misterio: Brunch
-(3, 1), -- Charo: Parrilla
-(3, 2), -- Charo: Vegano
-(4, 4), -- Casa Magnum: Italiana
-(5, 5), -- La Casa Violeta: Mariscos
-(6, 1), -- García Carrasco: Parrilla
-(7, 1), -- Tintos & Rubias Carrasco: Parrilla
-(8, 2), -- Manzanar: Vegano
-(9, 3), -- La Panera Rosa: Café
-(10, 1); -- El Puesto: Parrilla
-
 
 --Filtro por barrios:
-
 -- Carrasco
 UPDATE restaurants SET neighborhood = 'Carrasco' WHERE name IN (
   'Alquimista', 'Café Misterio', 'Charo', 'Casa Magnum', 'La Casa Violeta',
@@ -242,3 +215,211 @@ UPDATE restaurants SET neighborhood = 'Parque Rodó' WHERE name IN (
   'Club del Pan', 'De Morondanga', 'La Milpa Taquería', 'Casa Fauno', 'Oriundo',
   'Francachela', 'PyG Bar', 'Puesta del Sol', 'Sucré Salé', 'La Guinda'
 );
+-- Carrasco
+
+-- Etiquetas
+INSERT INTO tags (name) VALUES
+('Parrilla'), ('Vegano'), ('Café'), ('Italiana'), ('Mariscos'), ('Bar'), ('Brunch');
+-- 1 Parrilla
+-- 2 Vegano
+-- 3 Café
+-- 4 Italiana
+-- 5 Mariscos
+-- 6 Bar
+
+-- Alquimista (1): Parrilla, Café, Bar
+(1, 1), (1, 3), (1, 6),
+-- Café Misterio (2): Café, Italiana, Brunch, Mariscos
+(2, 3), (2, 4), (2, 7), (2, 5),
+-- Charo (3): Parrilla, Vegano, Café, Bar
+(3, 1), (3, 2), (3, 3), (3, 6),
+-- Casa Magnum (4): Parrilla, Italiana, Mariscos, Bar
+(4, 1), (4, 4), (4, 5), (4, 6),
+-- La Casa Violeta (5): Parrilla, Mariscos, Bar
+(5, 1), (5, 5), (5, 6),
+-- García Carrasco (6): Parrilla, Bar, Italiana
+(6, 1), (6, 6), (6, 4),
+-- Tintos & Rubias Carrasco (7): Parrilla, Italiana, Bar
+(7, 1), (7, 4), (7, 6),
+-- Manzanar (8): Parrilla, Vegano, Mariscos
+(8, 1), (8, 2), (8, 5),
+-- La Panera Rosa (9): Café, Brunch, Vegano
+(9, 3), (9, 7), (9, 2),
+-- El Puesto (10): Parrilla, Vegano, Mariscos
+(10, 1), (10, 2), (10, 5),
+-- Cantina Rostand (11): Parrilla, Italiana, Café
+(11, 1), (11, 4), (11, 3),
+-- Lo de Marcos (12): Vegano, Italiana, Parrilla
+(12, 2), (12, 4), (12, 1),
+-- Lombardía (13): Parrilla, Italiana, Café
+(13, 1), (13, 4), (13, 3),
+-- RIO Café Restaurant (14): Café, Bar, Brunch
+(14, 3), (14, 6), (14, 7),
+
+-- Cordón
+-- Café Gourmand (15): Café, Brunch, Vegano
+(15, 3), (15, 7), (15, 2),
+-- Escaramuza (16): Café, Vegano, Brunch
+(16, 3), (16, 2), (16, 7),
+-- Bakers Bar (17): Bar, Vegano, Parrilla
+(17, 6), (17, 2), (17, 1),
+-- Obrador Social Club (18): Café, Vegano, Brunch
+(18, 3), (18, 2), (18, 7),
+-- SU Bar (19): Bar, Vegano, Parrilla
+(19, 6), (19, 2), (19, 1),
+-- La Guinda (20): Bar, Vegano, Café
+(20, 6), (20, 2), (20, 3),
+-- Plaza de Chueca (21): Bar, Vegano, Parrilla
+(21, 6), (21, 2), (21, 1),
+-- El Rastro Parrillita (22): Parrilla, Vegano, Bar
+(22, 1), (22, 2), (22, 6),
+-- Uno Catorce Café (23): Café, Brunch, Vegano
+(23, 3), (23, 7), (23, 2),
+-- Paraíso Café (24): Café, Vegano, Brunch
+(24, 3), (24, 2), (24, 7),
+-- Acevedo (25): Vegano, Café, Brunch
+(25, 2), (25, 3), (25, 7),
+
+-- Buceo
+-- El Tío Bistró (26): Italiana, Vegano, Parrilla
+(26, 4), (26, 2), (26, 1),
+-- Hard Rock Café Montevideo (27): Bar, Parrilla, Italiana
+(27, 6), (27, 1), (27, 4),
+-- Ramona WTC (28): Vegano, Café, Brunch
+(28, 2), (28, 3), (28, 7),
+-- La Vaca Parrilla (29): Parrilla, Mariscos, Bar
+(29, 1), (29, 5), (29, 6),
+-- Yacht Club Uruguayo (30): Mariscos, Parrilla, Bar
+(30, 5), (30, 1), (30, 6),
+-- El Italiano (31): Italiana, Vegano, Café
+(31, 4), (31, 2), (31, 3),
+-- Sudestada (32): Vegano, Mariscos, Parrilla
+(32, 2), (32, 5), (32, 1),
+-- La Fonda del Buceo (33): Vegano, Café, Brunch
+(33, 2), (33, 3), (33, 7),
+
+-- Malvín
+-- Soprano Malvín (34): Parrilla, Italiana, Bar
+(34, 1), (34, 4), (34, 6),
+-- La Trillada (35): Parrilla, Italiana, Bar
+(35, 1), (35, 4), (35, 6),
+-- Decano Restaurante (36): Parrilla, Italiana, Bar
+(36, 1), (36, 4), (36, 6),
+-- Bar Michigan (37): Bar, Parrilla, Italiana
+(37, 6), (37, 1), (37, 4),
+-- Salmuera Café Bistró (38): Café, Mariscos, Vegano
+(38, 3), (38, 5), (38, 2),
+-- Hong Kong Malvín (39): Vegano, Italiana, Café
+(39, 2), (39, 4), (39, 3),
+-- La Nueva Pascale (40): Parrilla, Italiana, Bar
+(40, 1), (40, 4), (40, 6),
+-- Club La Isla (41): Parrilla, Bar, Italiana
+(41, 1), (41, 6), (41, 4),
+
+-- Punta Carretas
+-- La Chingada Cantina (42): Vegano, Italiana, Bar
+(42, 2), (42, 4), (42, 6),
+-- Pellegrin (43): Italiana, Vegano, Parrilla
+(43, 4), (43, 2), (43, 1),
+-- Bar Tabaré (44): Parrilla, Vegano, Bar
+(44, 1), (44, 2), (44, 6),
+-- Casa Magnum Punta Carretas (45): Italiana, Mariscos, Parrilla
+(45, 4), (45, 5), (45, 1),
+-- García Punta Carretas (46): Parrilla, Bar, Italiana
+(46, 1), (46, 6), (46, 4),
+-- Francis Punta Carretas (47): Mariscos, Vegano, Parrilla
+(47, 5), (47, 2), (47, 1),
+-- La Perdiz (48): Parrilla, Vegano, Bar
+(48, 1), (48, 2), (48, 6),
+-- La Estacada (49): Parrilla, Mariscos, Bar
+(49, 1), (49, 5), (49, 6),
+-- Bar Seven (50): Bar, Parrilla, Italiana
+(50, 6), (50, 1), (50, 4),
+
+-- Pocitos
+-- Fellini Pocitos (51): Italiana, Parrilla, Bar
+(51, 4), (51, 1), (51, 6),
+-- Carbonada (52): Parrilla, Bar, Café
+(52, 1), (52, 6), (52, 3),
+-- Tandory (53): Vegano, Italiana, Mariscos
+(53, 2), (53, 4), (53, 5),
+-- Tintos & Rubias Pocitos (54): Parrilla, Italiana, Bar
+(54, 1), (54, 4), (54, 6),
+-- Expreso Pocitos (55): Café, Bar, Brunch
+(55, 3), (55, 6), (55, 7),
+-- La Commedia (56): Italiana, Bar, Café
+(56, 4), (56, 6), (56, 3),
+-- Bruta (57): Parrilla, Vegano, Bar
+(57, 1), (57, 2), (57, 6),
+-- Milajó (58): Vegano, Italiana, Café
+(58, 2), (58, 4), (58, 3),
+-- La Giraldita (59): Parrilla, Bar, Café
+(59, 1), (59, 6), (59, 3),
+-- Pistatxofusión (60): Vegano, Parrilla, Bar
+(60, 2), (60, 1), (60, 6),
+
+-- Centro
+-- El Fogón (61): Parrilla, Mariscos, Italiana, Bar
+(61, 1), (61, 5), (61, 4), (61, 6),
+-- Bar Facal (62): Café, Bar, Brunch
+(62, 3), (62, 6), (62, 7),
+-- TANNAT Restaurant (63): Italiana, Mariscos, Bar
+(63, 4), (63, 5), (63, 6),
+-- Danubio Azul (64): Italiana, Bar, Café
+(64, 4), (64, 6), (64, 3),
+-- Verne Business Café (65): Café, Brunch, Vegano
+(65, 3), (65, 7), (65, 2),
+-- Pacharán (66): Bar, Parrilla, Italiana
+(66, 6), (66, 1), (66, 4),
+-- Oro del Rhin Café (67): Café, Brunch, Vegano
+(67, 3), (67, 7), (67, 2),
+-- Flora (68): Café, Vegano, Brunch
+(68, 3), (68, 2), (68, 7),
+
+-- Ciudad Vieja
+-- Álvarez Bar (69): Bar, Parrilla, Italiana
+(69, 6), (69, 1), (69, 4),
+-- Primuseum (70): Italiana, Bar, Mariscos
+(70, 4), (70, 6), (70, 5),
+-- El Palenque (71): Parrilla, Bar, Café
+(71, 1), (71, 6), (71, 3),
+-- Jacinto (72): Café, Brunch, Vegano
+(72, 3), (72, 7), (72, 2),
+-- Es Mercat (73): Mariscos, Bar, Italiana
+(73, 5), (73, 6), (73, 4),
+-- El Chipirón (74): Mariscos, Bar, Parrilla
+(74, 5), (74, 6), (74, 1),
+-- La Fonda (75): Vegano, Café, Brunch
+(75, 2), (75, 3), (75, 7),
+-- Estrecho (76): Bar, Italiana, Vegano
+(76, 6), (76, 4), (76, 2),
+-- El Otro Es Mercat (77): Mariscos, Bar, Italiana
+(77, 5), (77, 6), (77, 4),
+-- Cabaña Verónica (78): Parrilla, Bar, Café
+(78, 1), (78, 6), (78, 3),
+-- Café Brasilero (79): Café, Brunch, Vegano
+(79, 3), (79, 7), (79, 2),
+-- Las Misiones (80): Parrilla, Bar, Italiana
+(80, 1), (80, 6), (80, 4),
+
+-- Parque Rodo
+-- Club del Pan (81): Café, Brunch, Vegano
+(81, 3), (81, 7), (81, 2),
+-- De Morondanga (82): Vegano, Café, Brunch
+(82, 2), (82, 3), (82, 7),
+-- La Milpa Taquería (83): Vegano, Bar, Café
+(83, 2), (83, 6), (83, 3),
+-- Casa Fauno (84): Bar, Italiana, Vegano
+(84, 6), (84, 4), (84, 2),
+-- Oriundo (85): Bar, Vegano, Italiana
+(85, 6), (85, 2), (85, 4),
+-- Francachela (86): Parrilla, Bar, Italiana
+(86, 1), (86, 6), (86, 4),
+-- PyG Bar (87): Bar, Mariscos, Parrilla
+(87, 6), (87, 5), (87, 1),
+-- Puesta del Sol (88): Mariscos, Bar, Parrilla
+(88, 5), (88, 6), (88, 1),
+-- Sucré Salé (89): Café, Brunch, Vegano
+(89, 3), (89, 7), (89, 2),
+-- La Guinda (90): Bar, Café, Vegano
+(90, 6), (90, 3), (90, 2);

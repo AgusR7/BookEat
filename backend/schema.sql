@@ -40,3 +40,22 @@ CREATE TABLE IF NOT EXISTS reservations (
     presence_confirmed_at TIMESTAMP,
     created_at            TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS tags (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS restaurant_tags (
+    restaurant_id INT REFERENCES restaurants(id) ON DELETE CASCADE,
+    tag_id INT REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (restaurant_id, tag_id)
+);
+
+-- Índices para mejorar el rendimiento de consultas frecuentes
+CREATE INDEX IF NOT EXISTS idx_users_restaurant_id ON users(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_user_id ON reservations(user_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_restaurant_id ON reservations(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_restaurant_reservation_status
+  ON reservations (restaurant_id, reservation_at, status);
+
