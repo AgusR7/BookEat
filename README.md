@@ -1,4 +1,4 @@
-# Restaurant Reservations – Full‑Stack Project (Uruguay)
+# BookEat – Full‑Stack Project (Uruguay)
 
 > **Stack**: Node.js + Express · PostgreSQL · React + Vite · Google Maps · Socket.io · Docker Compose
 
