@@ -226,7 +226,7 @@ INSERT INTO tags (name) VALUES
 -- 4 Italiana
 -- 5 Mariscos
 -- 6 Bar
-
+INSERT INTO restaurant_tags (restaurant_id, tag_id) VALUES
 -- Alquimista (1): Parrilla, Café, Bar
 (1, 1), (1, 3), (1, 6),
 -- Café Misterio (2): Café, Italiana, Brunch, Mariscos
