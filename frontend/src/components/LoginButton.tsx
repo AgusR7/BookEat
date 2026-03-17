@@ -1,15 +1,15 @@
-// src/components/LoginButton.tsx
 import React, { useState } from 'react';
-import { Button } from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google';
 import CircularProgress from '@mui/material/CircularProgress';
+import GoogleIcon from '@mui/icons-material/Google';
+import { Button } from '@mui/material';
+import { API_BASE_URL } from '../config/env';
 
 const LoginButton: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = () => {
     setLoading(true);
-    window.location.href = `http://localhost:3001/api/auth/google`;
+    window.location.href = new URL('/api/auth/google', API_BASE_URL).toString();
   };
 
   return (
@@ -18,30 +18,14 @@ const LoginButton: React.FC = () => {
       onClick={handleLogin}
       disabled={loading}
       startIcon={
-        loading ? (
-          <CircularProgress size={20} />
-        ) : (
-          <GoogleIcon sx={{ color: '#fff' }} /> //  Ícono blanco
-        )
+        loading ? <CircularProgress size={20} color="inherit" /> : <GoogleIcon sx={{ color: '#fff' }} />
       }
       sx={{
-        bgcolor: '#ff3b59', //  Fondo del color primario
-        color: '#fff', //  Texto blanco
-        '&:hover': {
-          bgcolor: '#e5334a', //  Hover más oscuro
-        },
-        '&:disabled': {
-          bgcolor: '#ffb3c1', //  Disabled más claro
-          color: '#fff',
-        },
-        borderRadius: 2,
-        px: 4,
-        py: 1.5,
-        fontSize: '1rem',
-        fontWeight: 500,
+        minWidth: 280,
+        color: '#fff'
       }}
     >
-      {loading ? 'Iniciando sesión...' : 'Iniciar sesión con Google'}
+      {loading ? 'Iniciando sesion...' : 'Iniciar sesion con Google'}
     </Button>
   );
 };

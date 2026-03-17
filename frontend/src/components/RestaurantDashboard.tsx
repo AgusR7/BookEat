@@ -1,20 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { useSocket } from '../hooks/useSocket';
 import {
-  Box,
-  Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Button,
-  Snackbar,
   Alert,
+  Badge,
+  Box,
+  Button,
+  ButtonGroup,
+  Chip,
   CircularProgress,
   Container,
   Dialog,
@@ -22,11 +14,33 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  ButtonGroup,
-  Badge
+  InputAdornment,
+  Paper,
+  Snackbar,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography
 } from '@mui/material';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import PendingActionsOutlinedIcon from '@mui/icons-material/PendingActionsOutlined';
+import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import SearchIcon from '@mui/icons-material/Search';
+import TodayOutlinedIcon from '@mui/icons-material/TodayOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { API_BASE_URL } from '../config/env';
+import { withAuthHeader } from '../config/authToken';
+import { useAuth } from '../hooks/useAuth';
+import { useSocket } from '../hooks/useSocket';
 
 interface Reservation {
   id: number;
@@ -42,25 +56,254 @@ interface Reservation {
   user_email: string;
 }
 
+type ReservationScope = 'today' | 'upcoming' | 'history' | 'all';
+type ReservationStatusFilter =
+  | 'all'
+  | 'pending'
+  | 'confirmed'
+  | 'attended'
+  | 'no-show'
+  | 'cancelled';
+type DerivedReservationStatus = Exclude<ReservationStatusFilter, 'all'>;
+type NotificationState = {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'info' | 'warning' | 'error';
+};
+
+const NO_SHOW_DELAY_MS = 15 * 60 * 1000;
+
+const scopeOptions: Array<{ value: ReservationScope; label: string }> = [
+  { value: 'today', label: 'Hoy' },
+  { value: 'upcoming', label: 'Proximas' },
+  { value: 'history', label: 'Historial' },
+  { value: 'all', label: 'Todas' }
+];
+
+const statusOptions: Array<{ value: ReservationStatusFilter; label: string }> = [
+  { value: 'all', label: 'Todos los estados' },
+  { value: 'pending', label: 'Pendiente' },
+  { value: 'confirmed', label: 'Confirmada' },
+  { value: 'attended', label: 'Asistio' },
+  { value: 'no-show', label: 'No show' },
+  { value: 'cancelled', label: 'Cancelada' }
+];
+
+const withBase = (path: string) => new URL(path, API_BASE_URL).toString();
+
+const isSameServiceDay = (left: Date, right: Date) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
+
+const getDerivedStatus = (reservation: Reservation): DerivedReservationStatus => {
+  if (reservation.status === 'no-show') {
+    return 'no-show';
+  }
+
+  if (reservation.status === 'cancelled') {
+    return 'cancelled';
+  }
+
+  if (reservation.status === 'confirmed' && reservation.presence_confirmed) {
+    return 'attended';
+  }
+
+  if (reservation.status === 'confirmed') {
+    return 'confirmed';
+  }
+
+  return 'pending';
+};
+
+const getStatusLabel = (reservation: Reservation) => {
+  switch (getDerivedStatus(reservation)) {
+    case 'attended':
+      return 'Asistio';
+    case 'confirmed':
+      return 'Confirmada';
+    case 'no-show':
+      return 'No show';
+    case 'cancelled':
+      return 'Cancelada';
+    default:
+      return 'Pendiente';
+  }
+};
+
+const getStatusColor = (
+  status: DerivedReservationStatus
+): 'default' | 'success' | 'error' | 'info' | 'warning' => {
+  switch (status) {
+    case 'attended':
+      return 'success';
+    case 'confirmed':
+      return 'info';
+    case 'no-show':
+      return 'error';
+    case 'cancelled':
+      return 'default';
+    default:
+      return 'warning';
+  }
+};
+
+const sortReservationsForService = (items: Reservation[], nowTimestamp: number) =>
+  [...items].sort((left, right) => {
+    const leftTimestamp = new Date(left.reservation_at).getTime();
+    const rightTimestamp = new Date(right.reservation_at).getTime();
+    const leftClosed =
+      leftTimestamp < nowTimestamp ||
+      ['no-show', 'cancelled'].includes(left.status) ||
+      left.presence_confirmed;
+    const rightClosed =
+      rightTimestamp < nowTimestamp ||
+      ['no-show', 'cancelled'].includes(right.status) ||
+      right.presence_confirmed;
+
+    if (leftClosed === rightClosed) {
+      return leftClosed ? rightTimestamp - leftTimestamp : leftTimestamp - rightTimestamp;
+    }
+
+    return leftClosed ? 1 : -1;
+  });
+
+const downloadReservationsCsv = (rows: Reservation[]) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const escapeCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+  const header = ['Fecha', 'Hora', 'Cliente', 'Email', 'Comensales', 'Estado'];
+  const dataRows = rows.map((reservation) => {
+    const reservationDate = new Date(reservation.reservation_at);
+    return [
+      format(reservationDate, 'yyyy-MM-dd'),
+      format(reservationDate, 'HH:mm'),
+      reservation.user_name,
+      reservation.user_email,
+      reservation.requested_guests,
+      getStatusLabel(reservation)
+    ];
+  });
+
+  const csvContent = [header, ...dataRows]
+    .map((row) => row.map((value) => escapeCell(value)).join(','))
+    .join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `reservas-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`;
+  anchor.click();
+  window.URL.revokeObjectURL(url);
+};
+
+const getActionWindowLabel = (reservation: Reservation, currentTime: Date) => {
+  const derivedStatus = getDerivedStatus(reservation);
+  const reservationTime = new Date(reservation.reservation_at);
+  const noShowTime = new Date(reservationTime.getTime() + NO_SHOW_DELAY_MS);
+
+  if (derivedStatus === 'attended') {
+    return 'Asistencia confirmada';
+  }
+
+  if (derivedStatus === 'no-show') {
+    return 'Marcada como no show';
+  }
+
+  if (derivedStatus === 'cancelled') {
+    return 'Reserva cancelada';
+  }
+
+  if (derivedStatus === 'confirmed') {
+    return 'Reserva confirmada';
+  }
+
+  if (currentTime < reservationTime) {
+    return `Asistencia desde ${format(reservationTime, 'HH:mm')} | No show desde ${format(
+      noShowTime,
+      'HH:mm'
+    )}`;
+  }
+
+  if (currentTime < noShowTime) {
+    return `No show disponible desde ${format(noShowTime, 'HH:mm')}`;
+  }
+
+  return 'Lista para cerrar como asistencia o no show';
+};
+
+const getEmptyStateText = (scope: ReservationScope, statusFilter: ReservationStatusFilter) => {
+  if (scope !== 'all' || statusFilter !== 'all') {
+    return 'No hay reservas para los filtros seleccionados.';
+  }
+
+  return 'No hay reservas para este restaurante todavia.';
+};
+
 const RestaurantDashboard: React.FC = () => {
   const { restaurant } = useAuth();
   const navigate = useNavigate();
   const socket = useSocket();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
-  const [hasNewReservation, setHasNewReservation] = useState(false);
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' as 'success' | 'info' | 'warning' | 'error' });
+  const [highlightedReservationId, setHighlightedReservationId] = useState<number | null>(null);
+  const [notification, setNotification] = useState<NotificationState>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [confirmAction, setConfirmAction] = useState<'attend' | 'no-show' | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [scope, setScope] = useState<ReservationScope>('today');
+  const [statusFilter, setStatusFilter] = useState<ReservationStatusFilter>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const fetchReservations = async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const response = await fetch(withBase('/api/restaurants/reservations'), {
+        headers: withAuthHeader(),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error('No se pudieron cargar las reservas del restaurante.');
+      }
+
+      const data = (await response.json()) as Reservation[];
+      setReservations(data);
+    } catch (error) {
+      setNotification({
+        open: true,
+        message: (error as Error).message || 'Error al cargar las reservas.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const intervalId = window.setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000); // Actualiza cada 1 minuto
-    return () => clearInterval(interval);
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -79,80 +322,164 @@ const RestaurantDashboard: React.FC = () => {
 
   useEffect(() => {
     if (!restaurant || restaurant.role !== 'restaurant') {
-      navigate('/restaurant/login');
+      navigate('/restaurant/login', { replace: true });
       return;
     }
 
-    fetchReservations();
+    void fetchReservations();
 
-    if (socket && restaurant.restaurant_id) {
+    if (restaurant.restaurant_id) {
       socket.emit('join_restaurant_room', restaurant.restaurant_id);
     }
 
     const handleNewReservation = (data: { reservation: Reservation }) => {
-      setReservations(prev => [data.reservation, ...prev].sort((a, b) => new Date(b.reservation_at).getTime() - new Date(a.reservation_at).getTime()));
-      setHasNewReservation(true);
+      setReservations((current) => [data.reservation, ...current]);
+      setHighlightedReservationId(data.reservation.id);
       setNotification({
         open: true,
-        message: `¡Nueva reserva de ${data.reservation.user_name}! ${data.reservation.requested_guests} personas para ${format(new Date(data.reservation.reservation_at), 'PPp', { locale: es })}`,
+        message: `Nueva reserva de ${data.reservation.user_name} para ${data.reservation.requested_guests} persona(s).`,
         severity: 'success'
       });
+
       const audio = new Audio('/notification.mp3');
       audio.play().catch(() => {});
     };
 
-    const handleReservationUpdated = (data: { reservation_id: number; presence_confirmed: boolean; status: string }) => {
-      setReservations(prev => prev.map(r => r.id === data.reservation_id ? {
-        ...r,
-        presence_confirmed: data.presence_confirmed,
-        status: data.status,
-        presence_confirmed_at: data.presence_confirmed ? new Date().toISOString() : null
-      } : r));
+    const handleReservationUpdated = (data: {
+      reservation_id: number;
+      presence_confirmed: boolean;
+      status: string;
+    }) => {
+      setReservations((current) =>
+        current.map((reservation) =>
+          reservation.id === data.reservation_id
+            ? {
+                ...reservation,
+                presence_confirmed: data.presence_confirmed,
+                presence_confirmed_at: data.presence_confirmed
+                  ? new Date().toISOString()
+                  : null,
+                status: data.status
+              }
+            : reservation
+        )
+      );
+
       setNotification({
         open: true,
-        message: `Reserva ID ${data.reservation_id} actualizada a: ${data.status === 'confirmed' && data.presence_confirmed ? 'Asistió' : data.status === 'no-show' && !data.presence_confirmed ? 'No Asistió' : data.status}`,
+        message: `La reserva #${data.reservation_id} cambio a ${data.status}.`,
         severity: 'info'
       });
     };
 
-    if (socket) {
-      socket.on('connection_established', () => {});
-      socket.on('joined_room', () => {});
-      socket.on('new_reservation', handleNewReservation);
-      socket.on('reservation_updated', handleReservationUpdated);
-      if (!socket.connected) socket.connect();
+    socket.on('new_reservation', handleNewReservation);
+    socket.on('reservation_updated', handleReservationUpdated);
+
+    if (!socket.connected) {
+      socket.connect();
     }
 
     return () => {
-      socket.off('connection_established');
-      socket.off('joined_room');
-      socket.off('new_reservation');
-      socket.off('reservation_updated');
+      socket.off('new_reservation', handleNewReservation);
+      socket.off('reservation_updated', handleReservationUpdated);
     };
-  }, [restaurant, navigate, socket]);
+  }, [navigate, restaurant, socket]);
 
   useEffect(() => {
-    if (hasNewReservation) {
-      const timer = setTimeout(() => setHasNewReservation(false), 5000);
-      return () => clearTimeout(timer);
+    if (highlightedReservationId === null) {
+      return;
     }
-  }, [hasNewReservation]);
 
-  const fetchReservations = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/restaurants/reservations', { credentials: 'include' });
-      if (!response.ok) throw new Error('Error al cargar las reservas iniciales');
-      const data = await response.json();
-      setReservations(data.sort((a: Reservation, b: Reservation) => new Date(b.reservation_at).getTime() - new Date(a.reservation_at).getTime()));
-    } catch (error: any) {
-      setNotification({ open: true, message: error.message || 'Error al cargar las reservas', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedReservationId(null);
+    }, 6000);
 
-  const handleOpenConfirmDialog = (reservation: Reservation, action: 'attend' | 'no-show') => {
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [highlightedReservationId]);
+
+  const sortedReservations = useMemo(
+    () => sortReservationsForService(reservations, currentTime.getTime()),
+    [currentTime, reservations]
+  );
+
+  const metrics = useMemo(() => {
+    const nowTimestamp = currentTime.getTime();
+    const todayReservations = reservations.filter((reservation) =>
+      isSameServiceDay(new Date(reservation.reservation_at), currentTime)
+    );
+    const todayCovers = todayReservations
+      .filter((reservation) => reservation.status !== 'cancelled')
+      .reduce((total, reservation) => total + reservation.requested_guests, 0);
+    const pendingCount = reservations.filter((reservation) => reservation.status === 'pending').length;
+    const upcomingCount = reservations.filter(
+      (reservation) =>
+        new Date(reservation.reservation_at).getTime() >= nowTimestamp &&
+        !['cancelled', 'no-show'].includes(reservation.status)
+    ).length;
+    const followUpCount = reservations.filter((reservation) => {
+      const reservationTimestamp = new Date(reservation.reservation_at).getTime();
+      return (
+        reservation.status === 'no-show' ||
+        (reservation.status === 'pending' && reservationTimestamp + NO_SHOW_DELAY_MS < nowTimestamp)
+      );
+    }).length;
+
+    return {
+      todayReservations: todayReservations.length,
+      todayCovers,
+      pendingCount,
+      upcomingCount,
+      followUpCount
+    };
+  }, [currentTime, reservations]);
+
+  const visibleReservations = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const nowTimestamp = currentTime.getTime();
+
+    return sortedReservations.filter((reservation) => {
+      const reservationDate = new Date(reservation.reservation_at);
+      const reservationTimestamp = reservationDate.getTime();
+      const derivedStatus = getDerivedStatus(reservation);
+      const matchesSearch =
+        normalizedSearch === '' ||
+        reservation.user_name.toLowerCase().includes(normalizedSearch) ||
+        reservation.user_email.toLowerCase().includes(normalizedSearch);
+
+      if (!matchesSearch) {
+        return false;
+      }
+
+      if (statusFilter !== 'all' && derivedStatus !== statusFilter) {
+        return false;
+      }
+
+      if (scope === 'today') {
+        return isSameServiceDay(reservationDate, currentTime);
+      }
+
+      if (scope === 'upcoming') {
+        return reservationTimestamp >= nowTimestamp && !['cancelled', 'no-show'].includes(reservation.status);
+      }
+
+      if (scope === 'history') {
+        return (
+          reservationTimestamp < nowTimestamp ||
+          ['cancelled', 'no-show'].includes(reservation.status) ||
+          reservation.presence_confirmed
+        );
+      }
+
+      return true;
+    });
+  }, [currentTime, scope, searchTerm, sortedReservations, statusFilter]);
+
+  const handleOpenConfirmDialog = (
+    reservation: Reservation,
+    action: 'attend' | 'no-show'
+  ) => {
     setSelectedReservation(reservation);
     setConfirmAction(action);
     setConfirmDialogOpen(true);
@@ -165,140 +492,393 @@ const RestaurantDashboard: React.FC = () => {
   };
 
   const handleUpdatePresenceStatus = async () => {
-    if (!selectedReservation || confirmAction === null) return;
+    if (!selectedReservation || confirmAction === null) {
+      return;
+    }
+
     const present = confirmAction === 'attend';
     const originalReservation = selectedReservation;
+
     handleCloseConfirmDialog();
-    setReservations(prev => prev.map(r => r.id === originalReservation.id ? { ...r, presence_confirmed: present, status: present ? 'confirmed' : 'no-show', presence_confirmed_at: present ? new Date().toISOString() : null } : r));
+    setReservations((current) =>
+      current.map((reservation) =>
+        reservation.id === originalReservation.id
+          ? {
+              ...reservation,
+              presence_confirmed: present,
+              presence_confirmed_at: present ? new Date().toISOString() : null,
+              status: present ? 'confirmed' : 'no-show'
+            }
+          : reservation
+      )
+    );
+
     try {
-      const response = await fetch(`/api/restaurants/reservations/${originalReservation.id}/confirm-presence`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ present })
-      });
+      const response = await fetch(
+        withBase(`/api/restaurants/reservations/${originalReservation.id}/confirm-presence`),
+        {
+          method: 'PATCH',
+          headers: withAuthHeader({ 'Content-Type': 'application/json' }),
+          credentials: 'include',
+          body: JSON.stringify({ present })
+        }
+      );
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Error desconocido al actualizar estado' }));
-        setReservations(prev => prev.map(r => r.id === originalReservation.id ? originalReservation : r));
-        throw new Error(errorData.error || 'Error al actualizar estado de presencia');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'No se pudo actualizar el estado de la reserva.');
       }
-      setNotification({ open: true, message: present ? 'Cliente marcado como ASISTIÓ' : 'Cliente marcado como NO ASISTIÓ', severity: 'success' });
-    } catch (error: any) {
-      setReservations(prev => prev.map(r => r.id === originalReservation.id ? originalReservation : r));
-      setNotification({ open: true, message: error.message || 'Error al actualizar estado', severity: 'error' });
+
+      setNotification({
+        open: true,
+        message: present
+          ? 'La reserva quedo marcada como asistencia.'
+          : 'La reserva quedo marcada como no show.',
+        severity: 'success'
+      });
+    } catch (error) {
+      setReservations((current) =>
+        current.map((reservation) =>
+          reservation.id === originalReservation.id ? originalReservation : reservation
+        )
+      );
+      setNotification({
+        open: true,
+        message: (error as Error).message || 'Error al actualizar la reserva.',
+        severity: 'error'
+      });
     }
   };
 
   const handleCloseNotification = () => {
-    setNotification(prev => ({ ...prev, open: false }));
-  };
-
-  const getStatusText = (status: string, presence_confirmed: boolean) => {
-    if (status === 'confirmed' && presence_confirmed) return 'Asistió';
-    if (status === 'no-show' && !presence_confirmed) return 'No Asistió';
-    if (status === 'pending') return 'Pendiente';
-    if (status === 'cancelled') return 'Cancelada';
-    return status;
-  };
-
-  const handleRefresh = () => {
-    fetchReservations();
+    setNotification((current) => ({ ...current, open: false }));
   };
 
   if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><CircularProgress /></Box>;
+    return (
+      <Box sx={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
+  const summaryCards = [
+    {
+      title: 'Servicio hoy',
+      value: metrics.todayReservations,
+      subtitle: 'reservas del dia',
+      icon: <TodayOutlinedIcon color="primary" />
+    },
+    {
+      title: 'Cubiertos hoy',
+      value: metrics.todayCovers,
+      subtitle: 'comensales confirmados y pendientes',
+      icon: <GroupsOutlinedIcon color="secondary" />
+    },
+    {
+      title: 'Pendientes',
+      value: metrics.pendingCount,
+      subtitle: 'reservas por cerrar',
+      icon: <PendingActionsOutlinedIcon sx={{ color: '#b45309' }} />
+    },
+    {
+      title: 'Proximas',
+      value: metrics.upcomingCount,
+      subtitle: 'servicios por venir',
+      icon: <EventAvailableOutlinedIcon sx={{ color: '#2563eb' }} />
+    }
+  ];
+
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">Panel de Control - {restaurant?.name || 'Restaurante'}</Typography>
-        <Box>
-          <Badge color={socketConnected ? 'success' : 'error'} variant="dot" sx={{ mr: 2 }}>
-            <Typography variant="body2">Socket: {socketConnected ? 'Conectado' : 'Desconectado'}</Typography>
-          </Badge>
-          <Button variant="outlined" onClick={handleRefresh} size="small">Refrescar Reservas</Button>
-        </Box>
-      </Box>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Stack spacing={3}>
+        <Stack
+          direction={{ xs: 'column', lg: 'row' }}
+          justifyContent="space-between"
+          spacing={2}
+          alignItems={{ xs: 'flex-start', lg: 'center' }}
+        >
+          <Box>
+            <Typography variant="overline" sx={{ color: 'primary.main' }}>
+              Panel operativo
+            </Typography>
+            <Typography variant="h4" sx={{ mb: 0.5 }}>
+              {restaurant?.name || 'Restaurante'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Gestiona reservas, confirma asistencia y sigue el ritmo del servicio en tiempo real.
+            </Typography>
+          </Box>
 
-      <TableContainer component={Paper} sx={{ mb: 4 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Fecha y Hora</TableCell>
-              <TableCell>Cliente</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Comensales</TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {reservations.length === 0 ? (
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <Badge color={socketConnected ? 'success' : 'error'} variant="dot">
+              <Chip
+                label={socketConnected ? 'Socket conectado' : 'Socket desconectado'}
+                variant="outlined"
+              />
+            </Badge>
+            <Button
+              variant="outlined"
+              startIcon={isRefreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
+              onClick={() => void fetchReservations(true)}
+              disabled={isRefreshing}
+            >
+              Actualizar
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<DownloadOutlinedIcon />}
+              disabled={visibleReservations.length === 0}
+              onClick={() => downloadReservationsCsv(visibleReservations)}
+            >
+              Exportar CSV
+            </Button>
+          </Stack>
+        </Stack>
+
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
+          {summaryCards.map((card) => (
+            <Paper
+              key={card.title}
+              variant="outlined"
+              sx={{ p: 2.25, borderRadius: 3, flex: 1, minWidth: 0 }}
+            >
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Box
+                  sx={{
+                    width: 46,
+                    height: 46,
+                    borderRadius: '50%',
+                    display: 'grid',
+                    placeItems: 'center',
+                    backgroundColor: 'rgba(255, 115, 79, 0.1)'
+                  }}
+                >
+                  {card.icon}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {card.title}
+                  </Typography>
+                  <Typography variant="h5">{card.value}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {card.subtitle}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          ))}
+        </Stack>
+
+        {metrics.followUpCount > 0 && (
+          <Alert severity="warning" icon={<WarningAmberOutlinedIcon />}>
+            Hay {metrics.followUpCount} reserva(s) que merecen seguimiento rapido.
+          </Alert>
+        )}
+
+        <Paper variant="outlined" sx={{ p: 2.25, borderRadius: 3 }}>
+          <Stack spacing={2}>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={1.5}
+              alignItems={{ xs: 'stretch', md: 'center' }}
+            >
+              <TextField
+                label="Buscar cliente o email"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                size="small"
+                sx={{ minWidth: 280, flex: 1 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  )
+                }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                {visibleReservations.length} reserva(s) visibles
+              </Typography>
+            </Stack>
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Ventana de servicio
+              </Typography>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {scopeOptions.map((option) => (
+                  <Chip
+                    key={option.value}
+                    label={option.label}
+                    clickable
+                    color={scope === option.value ? 'primary' : 'default'}
+                    onClick={() => setScope(option.value)}
+                  />
+                ))}
+              </Stack>
+            </Stack>
+
+            <Stack spacing={1}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Estado
+              </Typography>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                {statusOptions.map((option) => (
+                  <Chip
+                    key={option.value}
+                    label={option.label}
+                    clickable
+                    color={statusFilter === option.value ? 'secondary' : 'default'}
+                    onClick={() => setStatusFilter(option.value)}
+                  />
+                ))}
+              </Stack>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3 }}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={6} align="center">No hay reservas para este restaurante.</TableCell>
+                <TableCell>Fecha y hora</TableCell>
+                <TableCell>Cliente</TableCell>
+                <TableCell>Comensales</TableCell>
+                <TableCell>Estado</TableCell>
+                <TableCell>Ventana de accion</TableCell>
+                <TableCell align="right">Acciones</TableCell>
               </TableRow>
-            ) : (
-              reservations.map((reservation) => {
-                const now = currentTime;
-                const reservationTime = new Date(reservation.reservation_at);
-                const fifteenMinutesAfter = new Date(reservationTime.getTime() + 15 * 60000);
+            </TableHead>
+            <TableBody>
+              {visibleReservations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                    <Stack spacing={1} alignItems="center">
+                      <Typography variant="subtitle1">
+                        {getEmptyStateText(scope, statusFilter)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Ajusta la busqueda o cambia la ventana de servicio para ver mas resultados.
+                      </Typography>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                visibleReservations.map((reservation) => {
+                  const reservationTime = new Date(reservation.reservation_at);
+                  const noShowTime = new Date(reservationTime.getTime() + NO_SHOW_DELAY_MS);
+                  const derivedStatus = getDerivedStatus(reservation);
+                  const isAssistButtonEnabled = currentTime >= reservationTime;
+                  const isNoShowButtonEnabled = currentTime >= noShowTime;
+                  const isButtonBlocked = ['confirmed', 'no-show', 'cancelled'].includes(
+                    reservation.status
+                  );
+                  const needsAttention =
+                    reservation.status === 'pending' &&
+                    currentTime.getTime() >= noShowTime.getTime();
 
-                const isAssistButtonEnabled = now >= reservationTime;
-                const isNoShowButtonEnabled = now >= fifteenMinutesAfter;
-                const isButtonBlocked = ['confirmed', 'no-show', 'cancelled'].includes(reservation.status);
-
-                return (
-                  <TableRow key={reservation.id} sx={{ backgroundColor: hasNewReservation && reservation === reservations[0] ? 'rgba(0, 200, 83, 0.1)' : 'inherit' }}>
-                    <TableCell>{format(new Date(reservation.reservation_at), 'PPp', { locale: es })}</TableCell>
-                    <TableCell>{reservation.user_name}</TableCell>
-                    <TableCell>{reservation.user_email}</TableCell>
-                    <TableCell>{reservation.requested_guests}</TableCell>
-                    <TableCell>{getStatusText(reservation.status, reservation.presence_confirmed)}</TableCell>
-                    <TableCell>
-                      <ButtonGroup variant="outlined" size="small">
-                        <Button
-                          color="success"
-                          onClick={() => handleOpenConfirmDialog(reservation, 'attend')}
-                          disabled={!isAssistButtonEnabled || isButtonBlocked}
-                          style={{ opacity: isAssistButtonEnabled && !isButtonBlocked ? 1 : 0.5 }}
-                        >
-                          Asistió
-                        </Button>
-                        <Button
-                          color="error"
-                          onClick={() => handleOpenConfirmDialog(reservation, 'no-show')}
-                          disabled={!isNoShowButtonEnabled || isButtonBlocked}
-                          style={{ opacity: isNoShowButtonEnabled && !isButtonBlocked ? 1 : 0.5 }}
-                        >
-                          No Asistió
-                        </Button>
-                      </ButtonGroup>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  return (
+                    <TableRow
+                      key={reservation.id}
+                      sx={{
+                        backgroundColor:
+                          highlightedReservationId === reservation.id
+                            ? 'rgba(56, 142, 60, 0.08)'
+                            : needsAttention
+                              ? 'rgba(237, 108, 2, 0.06)'
+                              : 'inherit'
+                      }}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {format(reservationTime, "EEE d 'de' MMM", { locale: es })}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {format(reservationTime, 'HH:mm')}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {reservation.user_name}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {reservation.user_email}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{reservation.requested_guests}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={getStatusLabel(reservation)}
+                          color={getStatusColor(derivedStatus)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {getActionWindowLabel(reservation, currentTime)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <ButtonGroup variant="outlined" size="small">
+                          <Button
+                            color="success"
+                            onClick={() => handleOpenConfirmDialog(reservation, 'attend')}
+                            disabled={!isAssistButtonEnabled || isButtonBlocked}
+                            sx={{
+                              opacity: isAssistButtonEnabled && !isButtonBlocked ? 1 : 0.5
+                            }}
+                          >
+                            Asistio
+                          </Button>
+                          <Button
+                            color="error"
+                            onClick={() => handleOpenConfirmDialog(reservation, 'no-show')}
+                            disabled={!isNoShowButtonEnabled || isButtonBlocked}
+                            sx={{
+                              opacity: isNoShowButtonEnabled && !isButtonBlocked ? 1 : 0.5
+                            }}
+                          >
+                            No show
+                          </Button>
+                        </ButtonGroup>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Stack>
 
       <Dialog open={confirmDialogOpen} onClose={handleCloseConfirmDialog}>
-        <DialogTitle>Confirmar Acción</DialogTitle>
+        <DialogTitle>Confirmar accion</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            ¿Estás seguro de que quieres marcar esta reserva como {confirmAction === 'attend' ? 'ASISTIÓ' : 'NO ASISTIÓ'}?
+            {confirmAction === 'attend'
+              ? 'La reserva quedara marcada como asistencia confirmada.'
+              : 'La reserva quedara marcada como no show.'}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseConfirmDialog}>Cancelar</Button>
-          <Button onClick={handleUpdatePresenceStatus} autoFocus color={confirmAction === 'attend' ? 'success' : 'error'}>
+          <Button
+            onClick={handleUpdatePresenceStatus}
+            autoFocus
+            color={confirmAction === 'attend' ? 'success' : 'error'}
+          >
             Confirmar
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={notification.open} autoHideDuration={6000} onClose={handleCloseNotification} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={5000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
         <Alert onClose={handleCloseNotification} severity={notification.severity} sx={{ width: '100%' }}>
           {notification.message}
         </Alert>

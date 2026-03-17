@@ -121,6 +121,16 @@ npm install # Si aún no lo has hecho y no usas Docker para pruebas
 npm test
 ```
 
+También puedes validar TypeScript en ambos paquetes:
+
+```bash
+cd backend
+npm run typecheck
+
+cd ../frontend
+npm run typecheck
+```
+
 ### 9. Monitoreo con Grafana (+ Prometheus)
 
 El backend expone métricas en el endpoint /metrics gracias al paquete prom-client.

@@ -1,40 +1,54 @@
 /// <reference types="vite/client" />
 
-import React, { useEffect, useState } from 'react';
-import { GoogleMap, MarkerF, useLoadScript } from '@react-google-maps/api';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { User } from '../hooks/useAuth';
-import ReserveCard from './ReserveCard';
-import { useSocket } from '../hooks/useSocket';
-
-// Material-UI imports
-import TextField from '@mui/material/TextField';
-import Checkbox from '@mui/material/Checkbox';
-import Box from '@mui/material/Box';
-import InputAdornment from '@mui/material/InputAdornment';
+import { GoogleMap, MarkerF, useLoadScript } from '@react-google-maps/api';
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  CircularProgress,
+  FormControl,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Popover,
+  Select,
+  SelectChangeEvent,
+  Stack,
+  TextField,
+  Typography
+} from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import Autocomplete from '@mui/material/Autocomplete';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import Popover from '@mui/material/Popover'; // Added Popover
-import Typography from '@mui/material/Typography'; // Optional: for titles in Popover
-import CheckIcon from '@mui/icons-material/Check';
-
-// Add these imports
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
+import RoomOutlinedIcon from '@mui/icons-material/RoomOutlined';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import FavoriteIcon from '@mui/icons-material/Favorite';
+import HistoryIcon from '@mui/icons-material/History';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { es } from 'date-fns/locale'; // Importar el locale español
-import { format as formatDateFns } from 'date-fns'; // Importar format y renombrarlo
+import { format as formatDateFns } from 'date-fns';
+import ReserveCard from './ReserveCard';
+import { User } from '../hooks/useAuth';
+import { useSocket } from '../hooks/useSocket';
+import {
+  focusRestaurantOnMap,
+  RESTAURANT_FOCUS_EVENT,
+  useRestaurantPreferences
+} from '../hooks/useRestaurantPreferences';
+import { API_BASE_URL, GMAPS_KEY } from '../config/env';
+import { withAuthHeader } from '../config/authToken';
 
-import Select, { SelectChangeEvent } from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
-import Alert from '@mui/material/Alert'; // Asegúrate que Alert está importado
+declare global {
+  interface Window {
+    gm_authFailure?: () => void;
+  }
+}
 
 export interface Restaurant {
   id: number;
@@ -51,72 +65,356 @@ export interface Restaurant {
   neighborhood?: string;
 }
 
+interface Availability {
+  start: number;
+  available_tables: number;
+}
+
 interface MapProps {
   user: User;
 }
 
 const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
 const checkedIcon = <CheckBoxIcon fontSize="small" />;
+const MONTEVIDEO_OFFSET_MS = -3 * 60 * 60 * 1000;
+
+const withBase = (path: string) => new URL(path, API_BASE_URL).toString();
+
+const requestConfig = (headers: Record<string, string> = {}) => ({
+  headers: withAuthHeader(headers),
+  withCredentials: true
+});
+
+const generateTimeSlots = () => {
+  const slots: string[] = [];
+
+  for (let hour = 10; hour <= 23; hour += 1) {
+    for (let minute = 0; minute < 60; minute += 15) {
+      if (hour === 23 && minute > 30) {
+        continue;
+      }
+
+      slots.push(`${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
+    }
+  }
+
+  return slots;
+};
+
+const restaurantMatchesFilters = (
+  restaurant: Restaurant,
+  selectedValues: string[],
+  allTags: string[],
+  allNeighborhoods: string[]
+) => {
+  const selectedTags = selectedValues.filter((value) => allTags.includes(value));
+  const selectedNeighborhoods = selectedValues.filter((value) =>
+    allNeighborhoods.includes(value)
+  );
+
+  const hasAllSelectedTags = selectedTags.every((tag) => restaurant.tags?.includes(tag));
+  const matchesNeighborhood =
+    selectedNeighborhoods.length === 0 ||
+    selectedNeighborhoods.includes(restaurant.neighborhood || '');
+
+  return hasAllSelectedTags && matchesNeighborhood;
+};
+
+const formatAvailabilityTimestamp = (timestamp: number) => {
+  const localDate = new Date(timestamp - MONTEVIDEO_OFFSET_MS);
+  const hours = String(localDate.getUTCHours()).padStart(2, '0');
+  const minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
 
 export default function Map({ user }: MapProps) {
-  const { isLoaded } = useLoadScript({
-    googleMapsApiKey: import.meta.env.VITE_GMAPS_KEY as string
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: GMAPS_KEY
   });
+
+  const socket = useSocket();
+  const { favorites, recentViews, isFavorite, toggleFavorite, addRecentView } =
+    useRestaurantPreferences();
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selected, setSelected] = useState<Restaurant | null>(null);
-  const [guests, setGuests] = useState(1); // For ReserveCard
-  const [date, setDate] = useState(''); // For ReserveCard
-  const [availability, setAvailability] = useState<{ start: number; available_tables: number }[]>([]); // For ReserveCard
-  const [selectedInterval, setSelectedInterval] = useState(''); // For ReserveCard
-  const [message, setMessage] = useState(''); // For ReserveCard
-  // Eliminar el estado snackbar
-  // const [snackbar, setSnackbar] = useState({
-  //   open: false,
-  //   message: '',
-  //   severity: 'info' as 'success' | 'error' | 'info' | 'warning'
-  // });
-  const [persistentNotification, setPersistentNotification] = useState<{ message: string; severity: 'success' | 'error' | 'info' | 'warning' } | null>(null);
-
-  const socket = useSocket();
-  const [center, setCenter] = useState<{ lat: number; lng: number }>({ lat: -34.9011, lng: -56.1645 });
-  
+  const [availability, setAvailability] = useState<Availability[]>([]);
+  const [date, setDate] = useState('');
+  const [selectedInterval, setSelectedInterval] = useState('');
+  const [guests, setGuests] = useState(1);
+  const [message, setMessage] = useState('');
+  const [notification, setNotification] = useState<{
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  } | null>(null);
+  const [center, setCenter] = useState({ lat: -34.9011, lng: -56.1645 });
   const [searchText, setSearchText] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-
-  // State for availability filter
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [filterAvailabilityDate, setFilterAvailabilityDate] = useState<Date | null>(new Date());
-  const [filterAvailabilityTime, setFilterAvailabilityTime] = useState<string>(''); // e.g., "10:00"
-  const [filterAvailabilityGuests, setFilterAvailabilityGuests] = useState<number>(2);
-  const [filterAvailabilityTags, setFilterAvailabilityTags] = useState<string[]>([]); // New state for tags in availability filter
-  const [availabilityFilterActive, setAvailabilityFilterActive] = useState<boolean>(false);
-  const [restaurantsMatchingAvailability, setRestaurantsMatchingAvailability] = useState<Restaurant[]>([]);
-  const [isSearchingAvailability, setIsSearchingAvailability] = useState<boolean>(false);
-  const [availabilitySearchMessage, setAvailabilitySearchMessage] = useState<string>('');
+  const [filterAvailabilityTime, setFilterAvailabilityTime] = useState('');
+  const [filterAvailabilityGuests, setFilterAvailabilityGuests] = useState(2);
+  const [filterAvailabilityTags, setFilterAvailabilityTags] = useState<string[]>([]);
+  const [availabilityFilterActive, setAvailabilityFilterActive] = useState(false);
+  const [restaurantsMatchingAvailability, setRestaurantsMatchingAvailability] = useState<
+    Restaurant[]
+  >([]);
+  const [availabilitySearchMessage, setAvailabilitySearchMessage] = useState('');
+  const [availabilityFilterAnchorEl, setAvailabilityFilterAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(true);
+  const [restaurantsError, setRestaurantsError] = useState('');
+  const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
+  const [isSearchingAvailability, setIsSearchingAvailability] = useState(false);
+  const [isLoadingSelection, setIsLoadingSelection] = useState(false);
+  const [mapAuthError, setMapAuthError] = useState('');
 
-  // Reserva confirmada message
-  const [reservaConfirmadaMessage, setReservaConfirmadaMessage] = useState<string>('');
+  const timeSlots = useMemo(() => generateTimeSlots(), []);
+  const allTags = useMemo(
+    () => Array.from(new Set(restaurants.flatMap((restaurant) => restaurant.tags || []))).sort(),
+    [restaurants]
+  );
+  const allNeighborhoods = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          restaurants
+            .map((restaurant) => restaurant.neighborhood)
+            .filter((value): value is string => Boolean(value))
+        )
+      ).sort(),
+    [restaurants]
+  );
+  const allCategoryOptions = useMemo(
+    () => Array.from(new Set([...allTags, ...allNeighborhoods])).sort(),
+    [allNeighborhoods, allTags]
+  );
+  const favoriteIds = useMemo(() => new Set(favorites.map((favorite) => favorite.id)), [favorites]);
 
-  // State for Popover
-  const [availabilityFilterAnchorEl, setAvailabilityFilterAnchorEl] = useState<null | HTMLElement>(null);
+  const baseRestaurantList = availabilityFilterActive
+    ? restaurantsMatchingAvailability
+    : restaurants;
+
+  const visibleRestaurants = useMemo(
+    () =>
+      baseRestaurantList.filter((restaurant) => {
+        const matchesText =
+          searchText.trim() === '' ||
+          restaurant.name.toLowerCase().includes(searchText.trim().toLowerCase());
+
+        return (
+          matchesText &&
+          (!favoritesOnly || favoriteIds.has(restaurant.id)) &&
+          restaurantMatchesFilters(restaurant, selectedCategories, allTags, allNeighborhoods)
+        );
+      }),
+    [
+      allNeighborhoods,
+      allTags,
+      baseRestaurantList,
+      favoriteIds,
+      favoritesOnly,
+      searchText,
+      selectedCategories
+    ]
+  );
+
+  const fetchRestaurants = async () => {
+    setIsLoadingRestaurants(true);
+    setRestaurantsError('');
+
+    try {
+      const response = await axios.get<Restaurant[]>(
+        withBase('/api/restaurants'),
+        requestConfig()
+      );
+      setRestaurants(response.data);
+    } catch (error: any) {
+      setRestaurantsError(
+        error.response?.data?.error || 'No se pudieron cargar los restaurantes.'
+      );
+    } finally {
+      setIsLoadingRestaurants(false);
+    }
+  };
+
+  const fetchAvailability = async (restaurantId: number, nextDate: string) => {
+    setIsLoadingAvailability(true);
+    setMessage('');
+
+    try {
+      const url = new URL(`/api/restaurants/${restaurantId}/availability`, API_BASE_URL);
+      url.searchParams.set('date', nextDate);
+
+      const response = await axios.get<Availability[]>(url.toString(), requestConfig());
+      setAvailability(response.data);
+      setSelectedInterval((current) => {
+        if (current && response.data.some((slot) => String(slot.start) === current)) {
+          return current;
+        }
+
+        return response.data[0] ? String(response.data[0].start) : '';
+      });
+    } catch (error) {
+      console.error('Error fetching availability:', error);
+      setAvailability([]);
+      setSelectedInterval('');
+      setMessage('No se pudo cargar la disponibilidad para este restaurante.');
+    } finally {
+      setIsLoadingAvailability(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      void fetchRestaurants();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    window.gm_authFailure = () => {
+      setMapAuthError(
+        'Google Maps rechazo la API key. Verifica que la clave pertenezca a un proyecto activo y que la Maps JavaScript API este habilitada.'
+      );
+    };
+
+    return () => {
+      delete window.gm_authFailure;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selected || !date) {
+      setAvailability([]);
+      setSelectedInterval('');
+      return;
+    }
+
+    void fetchAvailability(selected.id, date);
+  }, [date, selected]);
 
   useEffect(() => {
     const handleReservationCancelled = () => {
-      setPersistentNotification({
+      setNotification({
         message: 'Reserva cancelada exitosamente',
         severity: 'info'
       });
-      setTimeout(() => {
-        setPersistentNotification(null);
-      }, 3000);
     };
 
     window.addEventListener('reservation-cancelled', handleReservationCancelled);
-
     return () => {
       window.removeEventListener('reservation-cancelled', handleReservationCancelled);
     };
   }, []);
+
+  useEffect(() => {
+    const handleOccupancyUpdate = ({ restaurant_id }: { restaurant_id: number }) => {
+      if (selected?.id === restaurant_id && date) {
+        void fetchAvailability(restaurant_id, date);
+      }
+    };
+
+    socket.on('occupancy_update', handleOccupancyUpdate);
+    return () => {
+      socket.off('occupancy_update', handleOccupancyUpdate);
+    };
+  }, [date, selected, socket]);
+
+  const handleMarkerClick = async (restaurant: Restaurant) => {
+    setIsLoadingSelection(true);
+    setMessage('');
+    setNotification(null);
+
+    try {
+      const response = await axios.get<Restaurant>(
+        withBase(`/api/restaurants/${restaurant.id}`),
+        requestConfig()
+      );
+      setSelected(response.data);
+      setGuests(1);
+      setDate('');
+      setAvailability([]);
+      setSelectedInterval('');
+      setCenter({
+        lat: Number(response.data.latitude),
+        lng: Number(response.data.longitude)
+      });
+      addRecentView(response.data);
+    } catch (error: any) {
+      setNotification({
+        message:
+          error.response?.data?.error || 'No se pudo cargar el detalle del restaurante.',
+        severity: 'error'
+      });
+    } finally {
+      setIsLoadingSelection(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFocusRestaurant = (event: Event) => {
+      const customEvent = event as CustomEvent<{ restaurantId?: number }>;
+      const restaurantId = customEvent.detail?.restaurantId;
+      if (!restaurantId) {
+        return;
+      }
+
+      const restaurant = restaurants.find((item) => item.id === restaurantId);
+      if (restaurant) {
+        void handleMarkerClick(restaurant);
+      }
+    };
+
+    window.addEventListener(RESTAURANT_FOCUS_EVENT, handleFocusRestaurant as EventListener);
+    return () => {
+      window.removeEventListener(RESTAURANT_FOCUS_EVENT, handleFocusRestaurant as EventListener);
+    };
+  }, [restaurants]);
+
+  const handleReserve = async () => {
+    setMessage('');
+    setNotification(null);
+
+    try {
+      const response = await axios.post(
+        withBase('/api/reservations'),
+        {
+          restaurant_id: selected?.id,
+          reservation_at: Number(selectedInterval),
+          guests
+        },
+        requestConfig()
+      );
+
+      const newReservation = response.data.reservation;
+      const displayGuests = newReservation?.requested_guests || guests;
+
+      setNotification({
+        message: `Reserva para ${displayGuests} persona(s) confirmada`,
+        severity: 'success'
+      });
+      window.dispatchEvent(new Event('reservation-made'));
+      setSelected(null);
+    } catch (error: any) {
+      const serverMessage = error.response?.data?.error as string | undefined;
+      setNotification({
+        message: serverMessage || 'Error al reservar',
+        severity: 'error'
+      });
+
+      if (
+        serverMessage &&
+        (serverMessage.includes('Not enough tables') ||
+          serverMessage.includes('No hay suficientes mesas'))
+      ) {
+        setMessage('No hay mesas disponibles en ese horario. Elige otro horario.');
+      }
+
+      if (selected && date) {
+        void fetchAvailability(selected.id, date);
+      }
+    }
+  };
 
   const handleOpenAvailabilityPopover = (event: React.MouseEvent<HTMLElement>) => {
     setAvailabilityFilterAnchorEl(event.currentTarget);
@@ -126,401 +424,314 @@ export default function Map({ user }: MapProps) {
     setAvailabilityFilterAnchorEl(null);
   };
 
-
-  const allCategories = Array.from(
-    new Set(restaurants.flatMap(r => r.tags || []))
-  ).sort();
-
-  const filteredRestaurants = restaurants.filter(r =>
-    selectedCategories.length === 0 ||
-    (r.tags && selectedCategories.every(category => r.tags!.includes(category)))
-  );
-
-  // Generate time slots (10:00 to 23:30, every 15 mins)
-  const generateTimeSlots = () => {
-    const slots: string[] = [];
-    const openHour = 10;
-    const closeHour = 23; // Restaurant allows reservations up to 23:30
-    for (let h = openHour; h <= closeHour; h++) {
-      for (let m = 0; m < 60; m += 15) {
-        if (h === closeHour && m > 30) continue; 
-        slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
-      }
-    }
-    return slots;
-  };
-  const timeSlots = generateTimeSlots();
-
-  useEffect(() => {
-  if (user) {
-    axios.get('/api/restaurants').then((res) => {
-      setRestaurants(res.data);
-    });
-  }
-}, [user]);
-
-  useEffect(() => {
-    console.log('Map: Setting up occupancy_update listener');
-    const handleOccupancyUpdate = ({ restaurant_id }: { restaurant_id: number }) => {
-      console.log(`Map: Occupancy update received for restaurant ${restaurant_id}`);
-      setRestaurants(prev => prev.map(r => r.id === restaurant_id ? { ...r } : r)); 
-    };
-
-    socket.on('occupancy_update', handleOccupancyUpdate);
-
-    return () => {
-      console.log('Map: Cleaning up occupancy_update listener');
-      socket.off('occupancy_update', handleOccupancyUpdate);
-    };
-  }, [socket]);
-
-  useEffect(() => {
-    if (selected && date) {
-      axios
-        .get<{ start: number; available_tables: number }[]>(
-          `/api/restaurants/${selected.id}/availability?date=${date}`,
-          { withCredentials: true }
-        )
-        .then((res) => {
-          setAvailability(res.data);
-          if (res.data && res.data.length > 0) {
-            setSelectedInterval(res.data[0].start.toString());
-          } else {
-            setSelectedInterval('');
-          }
-        })
-        .catch(err => {
-          console.error("Error fetching availability for ReserveCard:", err);
-          setAvailability([]);
-          setSelectedInterval('');
-        });
-    } else {
-      setAvailability([]);
-      setSelectedInterval('');
-    }
-  }, [selected, date]);
-
-  const handleMarkerClick = async (r: Restaurant) => {
-    const res = await axios.get(`/api/restaurants/${r.id}`);
-    setSelected(res.data);
-    setGuests(1);
-    setDate('');
-    setAvailability([]);
-    setSelectedInterval('');
-    setMessage(''); 
-    // Do not clear availabilitySearchMessage here, it's global for the filter
-    setCenter({ lat: Number(r.latitude), lng: Number(r.longitude) });
-  };
-
-  const handleReserve = async () => {
-    setMessage('');
-    setPersistentNotification(null); // Limpiar notificaciones previas
-    try {
-      const res = await axios.post(
-        '/api/reservations',
-        {
-          restaurant_id: selected?.id,
-          reservation_at: Number(selectedInterval),
-          guests
-        },
-        { withCredentials: true }
-      );
-      const newReservation = res.data.reservation;
-      const displayGuests = newReservation?.requested_guests || guests;
-
-      setPersistentNotification({
-        message: `Reserva para ${displayGuests} persona(s) confirmada`,
-        severity: 'success'
-      });
-      window.dispatchEvent(new Event('reservation-made'));
-      setTimeout(() => {
-        setSelected(null);
-        setPersistentNotification(null); // Ocultar después de mostrar y cerrar tarjeta
-      }, 3000); // Duración de la notificación antes de cerrar la tarjeta
-    } catch (err: any) {
-      const serverMsg = err.response?.data?.error as string | undefined;
-      setPersistentNotification({
-        message: serverMsg || 'Error al reservar',
-        severity: 'error'
-      });
-
-      if (serverMsg &&
-          (serverMsg.includes('Not enough tables') ||
-           serverMsg.includes('No hay suficientes mesas'))) {
-        setMessage('No hay mesas disponibles en ese horario. Por favor elige otro.'); // Mensaje para ReserveCard
-      } else {
-        // setMessage(serverMsg || 'Error al reservar'); // Mensaje para ReserveCard si se desea
-      }
-      setTimeout(() => {
-        setPersistentNotification(null);
-      }, 5000); // Duración de la notificación de error
-    }
-  };
-
-  const allTags = Array.from(new Set(restaurants.flatMap(r => r.tags || [])));
-  const allNeighborhoods = Array.from(new Set(restaurants.map(r => r.neighborhood).filter(Boolean)));
-  const allCategoryOptions = [...allTags, ...allNeighborhoods].sort();
-
-  useEffect(() => {
-    if (user) {
-      axios.get('/api/restaurants').then((res) => setRestaurants(res.data));
-    }
-  }, [user]);
-
-
-  const handleSearchByAvailability = async () => {
-    if (!filterAvailabilityDate || !filterAvailabilityTime || filterAvailabilityGuests <= 0) {
-      setAvailabilitySearchMessage('Por favor, seleccione fecha, hora y número de comensales válidos.');
-      return; // Don't close popover, let user correct
-    }
-    setIsSearchingAvailability(true);
-    setAvailabilityFilterActive(true); // Mark that this filter is now active
-    setRestaurantsMatchingAvailability([]);
-    setAvailabilitySearchMessage(''); // Clear previous messages
-
-    const formattedDateForAPI = formatDateFns(filterAvailabilityDate, 'yyyy-MM-dd');
-    const [hour, minute] = filterAvailabilityTime.split(':').map(Number);
-    
-    const TZ_OFFSET_MS = -3 * 60 * 60 * 1000; 
-    const localTimeAsTimestamp = Date.UTC(
-        filterAvailabilityDate.getFullYear(),
-        filterAvailabilityDate.getMonth(),
-        filterAvailabilityDate.getDate(),
-        hour,
-        minute,
-        0
-    );
-    const targetSlotUTCTimestamp = localTimeAsTimestamp - TZ_OFFSET_MS;
-
-    // Use all restaurants for the initial availability check by date/time/guests
-    const baseRestaurantsForAvailabilityCheck = restaurants; 
-
-    const promises = baseRestaurantsForAvailabilityCheck.map(async (restaurant) => {
-      try {
-        const response = await axios.get<{ start: number; available_tables: number }[]>
-          (`/api/restaurants/${restaurant.id}/availability?date=${formattedDateForAPI}`,
-          { withCredentials: true }
-        );
-        const availableSlots = response.data;
-        const neededTables = Math.ceil(filterAvailabilityGuests / 2);
-
-        for (const slot of availableSlots) {
-          if (slot.start === targetSlotUTCTimestamp && slot.available_tables >= neededTables) {
-            return restaurant; 
-          }
-        }
-        return null; 
-      } catch (error) {
-        // console.warn(`Error fetching availability for ${restaurant.name}:`, error);
-        return null; 
-      }
-    });
-
-    try {
-      const results = await Promise.all(promises);
-      const foundRestaurantsByTimeAndCapacity = results.filter(r => r !== null) as Restaurant[];
-
-      // Further filter by selected availability tags
-      let finalFilteredRestaurants = foundRestaurantsByTimeAndCapacity;
-      if (filterAvailabilityTags.length > 0) {
-          const tags = filterAvailabilityTags.filter(cat => allTags.includes(cat));
-          const neighborhoods = filterAvailabilityTags.filter(cat => allNeighborhoods.includes(cat));
-
-          finalFilteredRestaurants = foundRestaurantsByTimeAndCapacity.filter(restaurant => {
-            const hasAllTags = tags.every(tag => restaurant.tags?.includes(tag));
-            const inAnySelectedNeighborhood = neighborhoods.length === 0 || neighborhoods.includes(restaurant.neighborhood || '');
-            return hasAllTags && inAnySelectedNeighborhood;
-          });
-        }
-
-
-
-      setRestaurantsMatchingAvailability(finalFilteredRestaurants);
-      if (finalFilteredRestaurants.length === 0) {
-        setAvailabilitySearchMessage('No se encontraron restaurantes con disponibilidad para los criterios seleccionados.');
-      } else {
-        setAvailabilitySearchMessage(`${finalFilteredRestaurants.length} restaurante(s) encontrado(s) con disponibilidad.`);
-      }
-    } catch (error) {
-      console.error("Error processing availability search:", error);
-      setAvailabilitySearchMessage('Ocurrió un error al buscar disponibilidad.');
-    } finally {
-      setIsSearchingAvailability(false);
-      handleCloseAvailabilityPopover(); // Close popover after search attempt
-    }
-  };
-
-  const handleResetAvailabilityFilterInputsInPopover = () => {
+  const resetAvailabilityPopoverInputs = () => {
     setFilterAvailabilityDate(new Date());
     setFilterAvailabilityTime('');
     setFilterAvailabilityGuests(2);
     setFilterAvailabilityTags([]);
-    // Do not clear availabilitySearchMessage or change availabilityFilterActive here
   };
-  
-  const handleClearActiveAvailabilityFilter = () => {
+
+  const clearAvailabilityFilter = () => {
     setAvailabilityFilterActive(false);
     setRestaurantsMatchingAvailability([]);
-    setFilterAvailabilityDate(new Date());
-    setFilterAvailabilityTime('');
-    setFilterAvailabilityGuests(2);
-    setFilterAvailabilityTags([]); // Clear tags as well
     setAvailabilitySearchMessage('');
-    handleCloseAvailabilityPopover(); // Ensure popover is closed if it was open
+    resetAvailabilityPopoverInputs();
+    handleCloseAvailabilityPopover();
   };
 
+  const handleSearchByAvailability = async () => {
+    if (!filterAvailabilityDate || !filterAvailabilityTime || filterAvailabilityGuests <= 0) {
+      setAvailabilitySearchMessage(
+        'Selecciona una fecha, una hora y una cantidad valida de comensales.'
+      );
+      return;
+    }
 
-  if (!isLoaded) return <p>Cargando mapa...</p>;
+    setIsSearchingAvailability(true);
+    setAvailabilityFilterActive(true);
+    setRestaurantsMatchingAvailability([]);
+    setAvailabilitySearchMessage('');
 
-  let baseRestaurantList = availabilityFilterActive ? restaurantsMatchingAvailability : restaurants;
+    const formattedDateForApi = formatDateFns(filterAvailabilityDate, 'yyyy-MM-dd');
+    const [hour, minute] = filterAvailabilityTime.split(':').map(Number);
+    const localTimeAsTimestamp = Date.UTC(
+      filterAvailabilityDate.getFullYear(),
+      filterAvailabilityDate.getMonth(),
+      filterAvailabilityDate.getDate(),
+      hour,
+      minute,
+      0
+    );
+    const targetSlotUtcTimestamp = localTimeAsTimestamp - MONTEVIDEO_OFFSET_MS;
+    const neededTables = Math.ceil(filterAvailabilityGuests / 2);
 
-  const selectedTags = selectedCategories.filter(cat => allTags.includes(cat));
-  const selectedNeighborhoods = selectedCategories.filter(cat => allNeighborhoods.includes(cat));
+    const promises = restaurants.map(async (restaurant) => {
+      try {
+        const url = new URL(`/api/restaurants/${restaurant.id}/availability`, API_BASE_URL);
+        url.searchParams.set('date', formattedDateForApi);
 
-  const visibleRestaurants = baseRestaurantList.filter(r => {
-  const nameMatches = searchText === '' || r.name.toLowerCase().includes(searchText.toLowerCase());
+        const response = await axios.get<Availability[]>(url.toString(), requestConfig());
+        const matchingSlot = response.data.find(
+          (slot) => slot.start === targetSlotUtcTimestamp && slot.available_tables >= neededTables
+        );
 
-  const hasAllSelectedTags = selectedTags.every(tag => r.tags?.includes(tag));
-  const matchesAnyNeighborhood = selectedNeighborhoods.length === 0 || selectedNeighborhoods.includes(r.neighborhood || '');
+        return matchingSlot ? restaurant : null;
+      } catch {
+        return null;
+      }
+    });
 
-  const tagsMatch = hasAllSelectedTags && matchesAnyNeighborhood;
+    try {
+      const foundRestaurants = (await Promise.all(promises)).filter(
+        (restaurant): restaurant is Restaurant => restaurant !== null
+      );
 
+      const filteredRestaurants = foundRestaurants.filter((restaurant) =>
+        restaurantMatchesFilters(
+          restaurant,
+          filterAvailabilityTags,
+          allTags,
+          allNeighborhoods
+        )
+      );
 
-  return nameMatches && tagsMatch;
-});
+      setRestaurantsMatchingAvailability(filteredRestaurants);
+      if (filteredRestaurants.length === 0) {
+        setAvailabilitySearchMessage(
+          'No se encontraron restaurantes con disponibilidad para esos criterios.'
+        );
+      } else {
+        setAvailabilitySearchMessage(
+          `${filteredRestaurants.length} restaurante(s) encontrado(s) con disponibilidad.`
+        );
+        setCenter({
+          lat: Number(filteredRestaurants[0].latitude),
+          lng: Number(filteredRestaurants[0].longitude)
+        });
+      }
+    } catch (error) {
+      console.error('Error processing availability search:', error);
+      setAvailabilitySearchMessage('Ocurrio un error al buscar disponibilidad.');
+    } finally {
+      setIsSearchingAvailability(false);
+      handleCloseAvailabilityPopover();
+    }
+  };
 
+  if (!GMAPS_KEY) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Alert severity="warning">
+          Falta configurar <code>VITE_GMAPS_KEY</code> para mostrar el mapa.
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Alert severity="error">No se pudo cargar Google Maps.</Alert>
+      </Box>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <Box sx={{ display: 'grid', placeItems: 'center', height: '100%' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Box sx={{
-        padding: '1rem',
-        backgroundColor: 'white',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        display: 'flex',
-        gap: 1.5, // Adjusted gap
-        alignItems: 'center',
-        flexWrap: 'wrap',     // Allow wrapping if space is tight
-        width: '100%',         
-        flexShrink: 0,
-      }}>
-        <TextField
-          label="Buscar restaurante"
-          variant="outlined"
-          value={searchText}
-          onChange={e => setSearchText(e.target.value)}
-          size="small"
-          sx={{ width: '20%', minWidth: 140, flexShrink: 0 }} 
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-        />
-        
-        <Autocomplete
-          multiple
-          id="combined-categories-filter"
-          options={allCategoryOptions}
-          value={selectedCategories}
-          disableCloseOnSelect
-          size="small"
-          getOptionLabel={(option) => option || ''}
-          onChange={(event, newValue) => {
-            setSelectedCategories(newValue.filter((v): v is string => typeof v === 'string'));
-          }}
-          renderOption={(props, option, { selected }) => (
-            <li {...props}>
-              <Checkbox
-                icon={icon}
-                checkedIcon={checkedIcon}
-                style={{ marginRight: 8 }}
-                checked={selected}
-              />
-              {option}
-            </li>
-          )}
-          sx={{ width: '25%', minWidth: 200, flexShrink: 0 }}
-          renderInput={(params) => (
-            <TextField 
-              {...params} 
-              label="Filtrar por categoría o barrio" 
-              placeholder={selectedCategories.length > 0 ? "" : "Categorías/Barrio"}
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Box
+        sx={{
+          p: 2,
+          backgroundColor: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(14px)',
+          borderBottom: '1px solid rgba(15, 23, 42, 0.08)',
+          flexShrink: 0
+        }}
+      >
+        <Stack spacing={1.5}>
+          <Stack
+            direction={{ xs: 'column', xl: 'row' }}
+            spacing={1.5}
+            alignItems={{ xs: 'stretch', xl: 'center' }}
+          >
+            <TextField
+              label="Buscar restaurante"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              size="small"
+              sx={{ minWidth: 220, flex: 1 }}
               InputProps={{
-                ...params.InputProps,
                 startAdornment: (
-                  <>
-                    <InputAdornment position="start" sx={{ pl: 0.5, color: 'action.active', mr: -0.5 }}>
-                      <FilterListIcon />
-                    </InputAdornment>
-                    {params.InputProps.startAdornment}
-                  </>
-                ),
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                )
               }}
             />
-          )}
-        />
-        
 
-        {/* Availability Filter Button and Popover */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-          <Button 
-            variant="outlined" 
-            onClick={handleOpenAvailabilityPopover}
-            startIcon={<FilterListIcon />}
-            size="medium" // Consistent with other buttons if any
-            sx={{ height: '40px' }} // Match height of other inputs/buttons if desired
+            <Autocomplete
+              multiple
+              options={allCategoryOptions}
+              value={selectedCategories}
+              disableCloseOnSelect
+              size="small"
+              onChange={(_event, newValue) => setSelectedCategories(newValue)}
+              renderOption={(props, option, { selected: optionSelected }) => {
+                const { key, ...optionProps } = props;
+
+                return (
+                <li key={key} {...optionProps}>
+                  <Checkbox
+                    icon={icon}
+                    checkedIcon={checkedIcon}
+                    checked={optionSelected}
+                    sx={{ mr: 1 }}
+                  />
+                  {option}
+                </li>
+                );
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Categorias y barrios"
+                  placeholder={selectedCategories.length === 0 ? 'Filtrar resultados' : ''}
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        <InputAdornment position="start">
+                          <FilterListIcon />
+                        </InputAdornment>
+                        {params.InputProps.startAdornment}
+                      </>
+                    )
+                  }}
+                />
+              )}
+              sx={{ minWidth: 260, flex: 1.4 }}
+            />
+
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Button
+                variant={favoritesOnly ? 'contained' : 'outlined'}
+                color={favoritesOnly ? 'secondary' : 'inherit'}
+                startIcon={favoritesOnly ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+                onClick={() => setFavoritesOnly((current) => !current)}
+              >
+                Favoritos
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleOpenAvailabilityPopover}
+                startIcon={<FilterListIcon />}
+              >
+                Disponibilidad
+              </Button>
+              {availabilityFilterActive && (
+                <Button variant="text" color="secondary" onClick={clearAvailabilityFilter}>
+                  Limpiar filtro
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            spacing={1}
+            alignItems={{ xs: 'flex-start', md: 'center' }}
+            justifyContent="space-between"
           >
-            Disponibilidad
-          </Button>
-          {availabilityFilterActive && (
-            <Button 
-              variant="outlined" 
-              onClick={handleClearActiveAvailabilityFilter}
-              size="medium"
-              color="secondary"
-              sx={{ height: '40px' }}
-            >
-              Reiniciar Filtros
-            </Button>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip
+                icon={<RoomOutlinedIcon />}
+                label={`${visibleRestaurants.length} visibles`}
+                color="primary"
+                variant="outlined"
+              />
+              <Chip
+                icon={<ExploreOutlinedIcon />}
+                label={`${restaurants.length} totales`}
+                variant="outlined"
+              />
+              <Chip
+                icon={<FavoriteIcon />}
+                label={`${favorites.length} guardados`}
+                variant="outlined"
+              />
+            </Stack>
+
+            {availabilitySearchMessage && (
+              <Typography variant="body2" color="text.secondary">
+                {availabilitySearchMessage}
+              </Typography>
+            )}
+          </Stack>
+
+          {recentViews.length > 0 && (
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Chip icon={<HistoryIcon />} label="Vistos recientemente" variant="outlined" />
+              {recentViews.slice(0, 4).map((restaurant) => (
+                <Chip
+                  key={restaurant.id}
+                  label={restaurant.name}
+                  clickable
+                  onClick={() => focusRestaurantOnMap(restaurant.id)}
+                />
+              ))}
+            </Stack>
           )}
-        </Box>
+
+          {restaurantsError && <Alert severity="error">{restaurantsError}</Alert>}
+          {mapAuthError && <Alert severity="error">{mapAuthError}</Alert>}
+        </Stack>
 
         <Popover
           open={Boolean(availabilityFilterAnchorEl)}
           anchorEl={availabilityFilterAnchorEl}
           onClose={handleCloseAvailabilityPopover}
-          anchorOrigin={{
-            vertical: 'bottom',
-            horizontal: 'left',
-          }}
-          transformOrigin={{
-            vertical: 'top',
-            horizontal: 'left',
-          }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         >
-          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2, minWidth: '350px', maxWidth: '400px' }}>
-            <Typography variant="subtitle1" gutterBottom>Filtrar por Disponibilidad</Typography>
-            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={es}>
-              <DatePicker
-                label="Fecha"
-                value={filterAvailabilityDate}
-                onChange={(newValue) => setFilterAvailabilityDate(newValue)}
-                minDate={new Date()}
-                slotProps={{ textField: { size: 'small', fullWidth: true } }}
-              />
-            </LocalizationProvider>
+          <Box
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              minWidth: 340,
+              maxWidth: 400
+            }}
+          >
+            <Typography variant="subtitle1">Filtrar por disponibilidad</Typography>
+            <DatePicker
+              label="Fecha"
+              value={filterAvailabilityDate}
+              onChange={(newValue: Date | null) => setFilterAvailabilityDate(newValue)}
+              minDate={new Date()}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
+            />
             <FormControl size="small" fullWidth>
               <InputLabel id="filter-time-popover-label">Hora</InputLabel>
               <Select
                 labelId="filter-time-popover-label"
                 value={filterAvailabilityTime}
                 label="Hora"
-                onChange={(e: SelectChangeEvent<string>) => setFilterAvailabilityTime(e.target.value)}
+                onChange={(event: SelectChangeEvent<string>) =>
+                  setFilterAvailabilityTime(event.target.value)
+                }
               >
-                {timeSlots.map(slot => (
-                  <MenuItem key={slot} value={slot}>{slot}</MenuItem>
+                {timeSlots.map((slot) => (
+                  <MenuItem key={slot} value={slot}>
+                    {slot}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -530,146 +741,130 @@ export default function Map({ user }: MapProps) {
               size="small"
               fullWidth
               value={filterAvailabilityGuests}
-              onChange={e => setFilterAvailabilityGuests(Math.max(1, parseInt(e.target.value, 10) || 1))}
+              onChange={(event) =>
+                setFilterAvailabilityGuests(Math.max(1, parseInt(event.target.value, 10) || 1))
+              }
               inputProps={{ min: 1 }}
             />
             <Autocomplete
               multiple
-              id="availability-tags-filter"
               options={allCategoryOptions}
               value={filterAvailabilityTags}
               disableCloseOnSelect
               size="small"
-              getOptionLabel={(option) => option}
-              onChange={(event, newValue) => {
-                setFilterAvailabilityTags(newValue);
-              }}
-              renderOption={(props, option, { selected }) => (
-                <li {...props}>
+              onChange={(_event, newValue) => setFilterAvailabilityTags(newValue)}
+              renderOption={(props, option, { selected: optionSelected }) => {
+                const { key, ...optionProps } = props;
+
+                return (
+                <li key={key} {...optionProps}>
                   <Checkbox
                     icon={icon}
                     checkedIcon={checkedIcon}
-                    style={{ marginRight: 8 }}
-                    checked={selected}
+                    checked={optionSelected}
+                    sx={{ mr: 1 }}
                   />
                   {option}
                 </li>
-              )}
+                );
+              }}
               renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Etiquetas (opcional)" 
-                  placeholder={filterAvailabilityTags.length > 0 ? "" : "Etiquetas"}
+                <TextField
+                  {...params}
+                  label="Categorias o barrio"
+                  placeholder={filterAvailabilityTags.length === 0 ? 'Opcional' : ''}
                 />
               )}
-              fullWidth
             />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1, gap: 1 }}>
-              <Button 
-                variant="text" 
-                onClick={handleResetAvailabilityFilterInputsInPopover}
-                size="small"
-              >
-                Limpiar Campos
+            <Stack direction="row" justifyContent="space-between" spacing={1}>
+              <Button variant="text" onClick={resetAvailabilityPopoverInputs}>
+                Limpiar campos
               </Button>
-              <Button 
-                variant="contained" 
-                onClick={handleSearchByAvailability} 
+              <Button
+                variant="contained"
+                onClick={() => void handleSearchByAvailability()}
                 disabled={isSearchingAvailability}
-                size="small"
               >
-                {isSearchingAvailability ? <CircularProgress size={20} color="inherit" /> : "Buscar"}
+                {isSearchingAvailability ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  'Buscar'
+                )}
               </Button>
-            </Box>
+            </Stack>
           </Box>
         </Popover>
       </Box>
 
-      {/* The Alert will now be positioned relative to the map container */}
-      {/* No changes needed for the Alert's conditional rendering here */}
-
-      <Box sx={{ 
-        flexGrow: 1, 
-        width: '100%',
-        height: '100%',
-        position: 'relative' 
-      }}>
-        {persistentNotification && (
-          <Alert
-            severity={persistentNotification.severity}
-            onClose={() => setPersistentNotification(null)} // Permite cierre manual
+      <Box sx={{ flexGrow: 1, position: 'relative' }}>
+        {(notification || isLoadingSelection || (isLoadingRestaurants && !restaurantsError)) && (
+          <Box
             sx={{
               position: 'absolute',
-              top: '20px', // Ajusta la posición vertical según necesites
+              top: 16,
               left: '50%',
               transform: 'translateX(-50%)',
-              zIndex: 1300, // Asegurar que esté sobre otros elementos como el ReserveCard
-              width: 'fit-content',
-              textAlign: 'center',
-              boxShadow: 3,
+              zIndex: 2,
+              width: 'min(90%, 520px)'
             }}
           >
-            {persistentNotification.message}
-          </Alert>
+            <Stack spacing={1}>
+              {notification && (
+                <Alert
+                  severity={notification.severity}
+                  onClose={() => setNotification(null)}
+                  sx={{ boxShadow: 3 }}
+                >
+                  {notification.message}
+                </Alert>
+              )}
+              {isLoadingSelection && (
+                <Alert severity="info" icon={<CircularProgress size={18} />}>
+                  Cargando detalle del restaurante...
+                </Alert>
+              )}
+              {isLoadingRestaurants && !restaurantsError && (
+                <Alert severity="info" icon={<CircularProgress size={18} />}>
+                  Actualizando restaurantes...
+                </Alert>
+              )}
+            </Stack>
+          </Box>
         )}
-        {availabilitySearchMessage && (
-          <Alert 
-            severity={availabilitySearchMessage.includes("Error") || availabilitySearchMessage.includes("No se encontraron") ? "warning" : "info"} 
-            sx={{ 
-              position: 'absolute',
-              top: '10px', // Adjust as needed
-              left: '50%',
-              transform: 'translateX(-50%)', // Center the alert
-              zIndex: 10, // Ensure it's above the map
-              minWidth: '300px', // Optional: for better readability
-              boxShadow: 3, // Optional: add some shadow
-            }}
-            onClose={() => setAvailabilitySearchMessage('')}
-          >
-            {availabilitySearchMessage}
-          </Alert>
-        )}
-        {reservaConfirmadaMessage && (
-          <Alert 
-            icon={<CheckIcon fontSize="inherit" />} severity="success"
-            sx={{ 
-              position: 'absolute',
-              top: '10px', // Adjust as needed
-              left: '50%',
-              transform: 'translateX(-50%)', // Center the alert
-              zIndex: 10, // Ensure it's above the map
-              minWidth: '300px', // Optional: for better readability
-              boxShadow: 3, // Optional: add some shadow
-            }}
-            onClose={() => setReservaConfirmadaMessage('')}
-          >
-            {reservaConfirmadaMessage}
-          </Alert>
-        )}
+
         <GoogleMap
           center={center}
           zoom={12}
-          mapContainerStyle={{ height: '100%', width: '100%' }} // El mapa llena su contenedor
+          mapContainerStyle={{ height: '100%', width: '100%' }}
+          options={{
+            streetViewControl: false,
+            mapTypeControl: false,
+            fullscreenControl: false
+          }}
         >
-          {visibleRestaurants.map((r) => (
+          {visibleRestaurants.map((restaurant) => (
             <MarkerF
-              key={r.id}
-              position={{ lat: Number(r.latitude), lng: Number(r.longitude) }}
-              title={`${r.name} (${r.seats_total/2} asientos totales)`}
-              onClick={() => handleMarkerClick(r)}
+              key={restaurant.id}
+              position={{
+                lat: Number(restaurant.latitude),
+                lng: Number(restaurant.longitude)
+              }}
+              title={`${restaurant.name} (${restaurant.seats_total / 2} mesas)`}
+              onClick={() => void handleMarkerClick(restaurant)}
               icon={{
-                fillColor: '#ff2d00',
+                fillColor: '#ff734f',
                 fillOpacity: 1,
                 strokeColor: '#ffffff',
-                strokeOpacity: 2,
+                strokeOpacity: 1,
                 strokeWeight: 2,
                 path: google.maps.SymbolPath.CIRCLE,
-                scale: 6,
+                scale: 7
               }}
             />
           ))}
         </GoogleMap>
       </Box>
+
       {selected && (
         <ReserveCard
           selected={selected}
@@ -678,28 +873,17 @@ export default function Map({ user }: MapProps) {
           setSelectedInterval={setSelectedInterval}
           date={date}
           setDate={setDate}
-          guests={guests} // This is for ReserveCard's own guest input
-          setGuests={setGuests} // This is for ReserveCard's own guest input
+          guests={guests}
+          setGuests={setGuests}
           handleReserve={handleReserve}
           setSelected={setSelected}
-          message={message} // ReserveCard's specific message
+          message={message}
+          isLoadingAvailability={isLoadingAvailability}
+          formatAvailabilityTimestamp={formatAvailabilityTimestamp}
+          isFavorite={isFavorite(selected.id)}
+          onToggleFavorite={() => toggleFavorite(selected)}
         />
       )}
-      {/* Eliminar el componente Snackbar */}
-      {/* <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar> */}
     </Box>
   );
 }

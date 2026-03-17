@@ -1,43 +1,17 @@
-// backend/src/routes/auth.ts
-import { Router, Request, Response, NextFunction } from 'express';
+import { Request, Response, Router } from 'express';
 import passport from 'passport';
-import { register, login, restaurantLogin, getMe, logout } from '../controllers/auth.controller';
-
-// Define session types
-declare module 'express-session' {
-  interface SessionData {
-    user?: {
-      id: number;
-      email: string;
-      name: string;
-      role: string;
-    };
-    restaurant?: {
-      id: number;
-      email: string;
-      name: string;
-      role: string;
-      restaurant_id: number;
-    };
-  }
-}
+import { getMe, login, logout, register, restaurantLogin } from '../controllers/auth.controller';
+import { AuthTokenPayload, createAuthToken } from '../utils/auth';
 
 const router = Router();
+const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
 
-// Local authentication routes
 router.post('/register', register);
 router.post('/login', login);
-
-// Restaurant authentication route
 router.post('/restaurant/login', restaurantLogin);
-
-// Get current user
 router.get('/me', getMe);
-
-// Logout route
 router.post('/logout', logout);
 
-// Google OAuth routes
 router.get(
   '/google',
   passport.authenticate('google', { scope: ['profile', 'email'] })
@@ -45,20 +19,28 @@ router.get(
 
 router.get(
   '/google/callback',
-  passport.authenticate('google', { failureRedirect: '/' }),
+  passport.authenticate('google', { failureRedirect: frontendBaseUrl }),
   (req: Request, res: Response) => {
-    // Set session data for OAuth users to maintain consistency with local auth
-    if (req.user) {
-      const user = req.user as any;
-      req.session.user = {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role || 'user'
-      };
+    const user = req.user as Partial<AuthTokenPayload> | undefined;
+    if (!user) {
+      return res.redirect(frontendBaseUrl);
     }
-    // Redirect to frontend after successful login
-    res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173');
+
+    const payload: AuthTokenPayload = {
+      id: Number(user.id),
+      email: String(user.email || ''),
+      name: String(user.name || ''),
+      role: 'user',
+      ...(user.picture !== undefined ? { picture: user.picture } : {})
+    };
+
+    req.session.user = payload;
+    const token = createAuthToken(payload);
+    const redirectUrl = new URL('/', frontendBaseUrl);
+    redirectUrl.searchParams.set('token', token);
+    redirectUrl.searchParams.set('redirect', '/map');
+
+    return res.redirect(redirectUrl.toString());
   }
 );
 

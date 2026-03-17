@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Chip, CircularProgress } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import styles from '../styles/ReserveCard.module.scss';
 import { Restaurant } from './Map';
-import { DatePicker } from '@mui/x-date-pickers';
-import { CircularProgress } from '@mui/material';
 
 interface Availability {
   start: number;
@@ -21,6 +21,10 @@ interface ReserveCardProps {
   handleReserve: () => void;
   setSelected: React.Dispatch<React.SetStateAction<Restaurant | null>>;
   message: string;
+  isLoadingAvailability: boolean;
+  formatAvailabilityTimestamp: (timestamp: number) => string;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }
 
 const ReserveCard: React.FC<ReserveCardProps> = ({
@@ -28,53 +32,81 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
   availability,
   selectedInterval,
   setSelectedInterval,
-  date, // date is 'YYYY-MM-DD' string
+  date,
   setDate,
   guests,
   setGuests,
   handleReserve,
   setSelected,
   message,
+  isLoadingAvailability,
+  formatAvailabilityTimestamp,
+  isFavorite,
+  onToggleFavorite
 }) => {
   const [isReserving, setIsReserving] = useState(false);
   const [guestInput, setGuestInput] = useState(guests.toString());
   const [guestError, setGuestError] = useState('');
 
-  React.useEffect(() => {
-    setGuestInput(guests ? guests.toString() : '');
-    if (guests < 1) {
-      setGuestError('El número de personas debe ser al menos 1.');
-    } else {
-      setGuestError('');
+  useEffect(() => {
+    setGuestInput(guests.toString());
+    setGuestError(guests < 1 ? 'El numero de personas debe ser al menos 1.' : '');
+  }, [guests]);
+
+  const dateForPickerValue = useMemo(() => {
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return null;
     }
-  }, [guests]);  
-  if (!selected) return null;
+
+    const [year, month, day] = date.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }, [date]);
+
+  const requiredTables = Math.max(1, Math.ceil(Math.max(guests, 1) / 2));
+  const compatibleAvailability = useMemo(
+    () => availability.filter((slot) => slot.available_tables >= requiredTables),
+    [availability, requiredTables]
+  );
+
+  useEffect(() => {
+    if (!date) {
+      if (selectedInterval) {
+        setSelectedInterval('');
+      }
+      return;
+    }
+
+    if (compatibleAvailability.length === 0) {
+      if (selectedInterval) {
+        setSelectedInterval('');
+      }
+      return;
+    }
+
+    if (!compatibleAvailability.some((slot) => String(slot.start) === selectedInterval)) {
+      setSelectedInterval(String(compatibleAvailability[0].start));
+    }
+  }, [compatibleAvailability, date, selectedInterval, setSelectedInterval]);
+
+  if (!selected) {
+    return null;
+  }
 
   const handleDateChange = (newDate: Date | null) => {
-    if (newDate) {
-      // newDate from DatePicker is a local Date object
-      const year = newDate.getFullYear();
-      // JavaScript months are 0-indexed, so add 1 for 1-indexed month string
-      const month = (newDate.getMonth() + 1).toString().padStart(2, '0');
-      const day = newDate.getDate().toString().padStart(2, '0');
-      const formattedDate = `${year}-${month}-${day}`;
-      setDate(formattedDate);
+    if (!newDate) {
+      setDate('');
+      return;
     }
-  };
 
-  // Create a local Date object for the DatePicker value
-  // Memoize the calculation of dateForPickerValue to avoid re-creating Date objects unnecessarily
-  const dateForPickerValue = React.useMemo(() => {
-    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      const [yearNum, monthNum, dayNum] = date.split('-').map(Number);
-      // monthNum is 1-indexed from the string, convert to 0-indexed for Date constructor
-      return new Date(yearNum, monthNum - 1, dayNum);
-    }
-    return null; // DatePicker can handle null if the date string is not valid or empty
-  }, [date]);
+    const year = newDate.getFullYear();
+    const month = String(newDate.getMonth() + 1).padStart(2, '0');
+    const day = String(newDate.getDate()).padStart(2, '0');
+    setDate(`${year}-${month}-${day}`);
+  };
 
   const handleReserveClick = async () => {
     setIsReserving(true);
+
     try {
       await handleReserve();
     } finally {
@@ -84,120 +116,154 @@ const ReserveCard: React.FC<ReserveCardProps> = ({
 
   return (
     <div className={styles.reserveCard}>
-      <h2>{selected.name}</h2>
-      <p>Horario: 10:00 AM - 01:00 AM</p>
-      <p>{selected.description}</p>
-      <p>Dirección: {selected.address}</p>
-      <p>Teléfono: {selected.phone}</p>
-      <p>Email: {selected.email}</p>
-      <p>Mesas disponibles: {selected.tables_total}</p>
+      <div className={styles.header}>
+        <div>
+          <h2>{selected.name}</h2>
+          {selected.neighborhood && <p className={styles.neighborhood}>{selected.neighborhood}</p>}
+        </div>
+        <div className={styles.headerActions}>
+          <button type="button" className={styles.ghostBtn} onClick={onToggleFavorite}>
+            {isFavorite ? 'Guardado' : 'Guardar'}
+          </button>
+          <button type="button" className={styles.ghostBtn} onClick={() => setSelected(null)}>
+            Cerrar
+          </button>
+        </div>
+      </div>
 
-      <label>
-        Fecha:
-          <DatePicker
-            value={dateForPickerValue} // Use the local Date object
-            onChange={handleDateChange}
-            minDate={new Date()}
-            slotProps={{
-              textField: {
-                fullWidth: true,
-                size: 'small',
-                className: styles.datePickerInput
-              },
-              openPickerButton: { // Props para el botón del icono del calendario
-                sx: {
-                  '&:focus': {
-                    outline: 'none', // Elimina el contorno de foco
-                    boxShadow: 'none', // Elimina cualquier sombra de foco si la hubiera
-                  }
-                }
-              },
-              day: { // Props para cada componente de día en el calendario
-                sx: {
-                  // Estilo para el día seleccionado
-                  '&.Mui-selected': {
-                    borderRadius: '50%', // Asegura que el borde sea perfectamente circular
-                    // MUI PickersDay está diseñado para ser cuadrado, por lo que borderRadius: '50%' debería crear un círculo.
-                  },
-                  // Estilo para el día de hoy (si no está seleccionado)
-                  '&.MuiPickersDay-today:not(.Mui-selected)': {
-                    borderRadius: '50%', // Asegura que el borde del día de hoy también sea circular
-                  }
-                }
-              }
-            }}
-          />
-      </label>
+      <p className={styles.description}>{selected.description}</p>
 
-      {availability.length > 0 && (
-        <label>
-          Horario:          <select
-            value={selectedInterval}
-            onChange={(e) => setSelectedInterval(e.target.value)}
-            className={styles.select}
-          >
-            {availability.map((a) => {
-              // Convert UTC timestamp to local restaurant time (UTC-3)
-              const dt = new Date(a.start);
-              // Calculate local restaurant time by applying UTC-3 offset
-              const localTime = new Date(dt.getTime() - (3 * 60 * 60 * 1000));
-              const h = String(localTime.getUTCHours()).padStart(2, '0');
-              const m = String(localTime.getUTCMinutes()).padStart(2, '0');
-              return (
-                <option key={a.start} value={a.start}>
-                  {`${h}:${m}`} ({a.available_tables} mesas)
-                </option>
-              );
-            })}
-          </select>
-        </label>
+      <div className={styles.meta}>
+        <p>
+          <strong>Horario:</strong> 10:00 AM a 11:30 PM
+        </p>
+        {selected.address && (
+          <p>
+            <strong>Direccion:</strong> {selected.address}
+          </p>
+        )}
+        {selected.phone && (
+          <p>
+            <strong>Telefono:</strong> {selected.phone}
+          </p>
+        )}
+        {selected.email && (
+          <p>
+            <strong>Email:</strong> {selected.email}
+          </p>
+        )}
+        {selected.tables_total && (
+          <p>
+            <strong>Mesas:</strong> {selected.tables_total}
+          </p>
+        )}
+      </div>
+
+      {selected.tags && selected.tags.length > 0 && (
+        <div className={styles.tags}>
+          {selected.tags.map((tag) => (
+            <Chip key={tag} label={tag} size="small" variant="outlined" />
+          ))}
+        </div>
       )}
 
       <label>
-        Personas:
+        Fecha
+        <DatePicker
+          value={dateForPickerValue}
+          onChange={handleDateChange}
+          minDate={new Date()}
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              size: 'small',
+              className: styles.datePickerInput
+            }
+          }}
+        />
+      </label>
+
+      {date && (
+        <div className={styles.availabilityState}>
+          {isLoadingAvailability ? (
+            <div className={styles.loadingLine}>
+              <CircularProgress size={18} />
+              <span>Consultando disponibilidad...</span>
+            </div>
+          ) : compatibleAvailability.length > 0 ? (
+            <label>
+              Horario
+              <select
+                value={selectedInterval}
+                onChange={(event) => setSelectedInterval(event.target.value)}
+                className={styles.select}
+              >
+                {compatibleAvailability.map((slot) => (
+                  <option key={slot.start} value={slot.start}>
+                    {formatAvailabilityTimestamp(slot.start)} ({slot.available_tables} mesas)
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : availability.length > 0 ? (
+            <p className={styles.helperText}>
+              Hay turnos en esta fecha, pero no alcanzan para {guests} persona(s).
+            </p>
+          ) : (
+            <p className={styles.helperText}>
+              No hay turnos disponibles para la fecha seleccionada.
+            </p>
+          )}
+        </div>
+      )}
+
+      <label>
+        Personas
         <input
           type="number"
-          min={1} // Ayuda a prevenir negativos en algunos navegadores
+          min={1}
           value={guestInput}
-          onChange={(e) => {
-            const value = e.target.value;
-            setGuestInput(value); // Actualizar el input visualmente
-            const num = parseInt(value, 10);
+          onChange={(event) => {
+            const value = event.target.value;
+            setGuestInput(value);
 
-            if (value === '' || isNaN(num)) { // Si está vacío o no es un número
-              setGuests(1); // Opcional: resetear a 1 o manejar como prefieras
-              setGuestError('Por favor, ingrese un número válido.');
-            } else if (num < 1) {
-              setGuests(1); // Corregir el estado guests a 1
-              setGuestError('El número de personas no puede ser menor a 1.');
+            const parsed = parseInt(value, 10);
+            if (value === '' || Number.isNaN(parsed)) {
+              setGuests(1);
+              setGuestError('Ingresa un numero valido.');
+            } else if (parsed < 1) {
+              setGuests(1);
+              setGuestError('El numero de personas no puede ser menor a 1.');
             } else {
-              setGuests(num);
-              setGuestError(''); // Limpiar error si el número es válido
+              setGuests(parsed);
+              setGuestError('');
             }
           }}
           className={styles.input}
         />
       </label>
-      {guestError && <p className={styles.errorMessage} style={{ color: 'red', fontSize: '0.8em' }}>{guestError}</p>}
 
-      <button 
-        className={styles.reserveBtn} 
-        onClick={handleReserveClick} 
-        disabled={!selectedInterval || guests < 1 || isReserving || !!guestError}
-      >
-        {isReserving ? (
-          <>
-            <CircularProgress size={20} color="inherit" style={{ marginRight: 8 }} />
-            Creando reserva...
-          </>
-        ) : (
-          'Reservar'
-        )}
-      </button>
+      {guestError && <p className={styles.errorMessage}>{guestError}</p>}
 
-      <button className={styles.closeBtn} onClick={() => setSelected(null)}>
-        Cerrar
-      </button>
+      <div className={styles.actions}>
+        <button
+          type="button"
+          className={styles.reserveBtn}
+          onClick={handleReserveClick}
+          disabled={
+            !selectedInterval || guests < 1 || isReserving || isLoadingAvailability || !!guestError
+          }
+        >
+          {isReserving ? (
+            <>
+              <CircularProgress size={18} color="inherit" sx={{ mr: 1 }} />
+              Creando reserva...
+            </>
+          ) : (
+            'Reservar'
+          )}
+        </button>
+      </div>
 
       {message && <p className={styles.message}>{message}</p>}
     </div>

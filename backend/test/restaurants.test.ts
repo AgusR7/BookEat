@@ -1,88 +1,112 @@
-import {getById} from "../src/controllers/restaurants.controller"
-import { getAll } from '../src/controllers/restaurants.controller';
-import { db } from '../src/db';
 import { Request, Response } from 'express';
-// Mockear la base de datos
-jest.mock('../src/db'); // Mockear la base de datos
+import {
+  getAll,
+  getAvailability,
+  getById
+} from '../src/controllers/restaurants.controller';
+import { db } from '../src/db';
 
+jest.mock('../src/db');
 
-// Definir el restaurante como una constante
-const testRestaurants = [
-    {
-      id: 1,
-      name: 'Café Brasilero',
-      latitude: -34.90757,
-      longitude: -56.20312,
-      description: 'Café histórico con ambiente bohemio',
-      seats_total: 40,
-      tables_total: 20
-    },
-    {
-      id: 2,
-      name: 'La Pasiva',
-      latitude: -34.90310,
-      longitude: -56.18816,
-      description: 'Parrillada tradicional uruguaya',
-      seats_total: 60,
-      tables_total: 30
-    }
-  ];
-  
+const createMockResponse = () => {
+  const response: Partial<Response> = {};
+  response.status = jest.fn().mockReturnValue(response);
+  response.json = jest.fn().mockReturnValue(response);
+  return response as Response;
+};
 
-describe('getById (con mocks)', () => {
-  const mockRequest = (params: any): Partial<Request> => ({ params });
-  const mockResponse = (): Partial<Response> => {
-    const res: Partial<Response> = {};
-    res.status = jest.fn().mockReturnValue(res);
-    res.json = jest.fn().mockReturnValue(res);
-    return res;
-  };
-
-  it('debería devolver un restaurante si existe', async () => {
-    const req = mockRequest({ id: '1' }) as Request;
-    const res = mockResponse() as Response;
-
-    // Simular el resultado del query
-    (db.query as jest.Mock).mockResolvedValue({ rows: [testRestaurants] });
-
-    await getById(req, res);
-
-    expect(db.query).toHaveBeenCalledWith(expect.any(String), ['1']);
-    expect(res.json).toHaveBeenCalledWith(testRestaurants);
+describe('Restaurants controller', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('debería devolver 404 si no se encuentra el restaurante', async () => {
-    const req = mockRequest({ id: '999' }) as Request;
-    const res = mockResponse() as Response;
-
-    (db.query as jest.Mock).mockResolvedValue({ rows: [] });
-
-    await getById(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ error: 'Restaurant not found' });
-  });
-});
-
-describe('getAll (con mocks)', () => {
-    const mockResponse = (): Partial<Response> => {
-      const res: Partial<Response> = {};
-      res.status = jest.fn().mockReturnValue(res);
-      res.json = jest.fn().mockReturnValue(res);
-      return res;
-    };
-  
-    it('debería devolver todos los restaurantes', async () => {
-      const res = mockResponse() as Response;
-  
-      (db.query as jest.Mock).mockResolvedValue({ rows: testRestaurants });
-  
-      await getAll({} as Request, res);
-  
-      expect(db.query).toHaveBeenCalledWith(expect.any(String));
-      expect(res.json).toHaveBeenCalledWith(testRestaurants);
+  it('returns all restaurants ordered by the query result', async () => {
+    const res = createMockResponse();
+    (db.query as jest.Mock).mockResolvedValue({
+      rows: [
+        { id: 1, name: 'Alquimista', tags: ['Bar'] },
+        { id: 2, name: 'Charo', tags: ['Cafe'] }
+      ]
     });
 
-    
+    await getAll({ query: {} } as Request, res);
 
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('ORDER BY r.name ASC'), []);
+    expect(res.json).toHaveBeenCalledWith([
+      { id: 1, name: 'Alquimista', tags: ['Bar'] },
+      { id: 2, name: 'Charo', tags: ['Cafe'] }
+    ]);
   });
+
+  it('rejects invalid restaurant ids on getById', async () => {
+    const res = createMockResponse();
+
+    await getById({ params: { id: 'abc' } } as unknown as Request, res);
+
+    expect(db.query).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('returns restaurant detail with tags', async () => {
+    const res = createMockResponse();
+    (db.query as jest.Mock).mockResolvedValue({
+      rows: [
+        {
+          id: 1,
+          name: 'Alquimista',
+          neighborhood: 'Carrasco',
+          tags: ['Bar', 'Parrilla']
+        }
+      ]
+    });
+
+    await getById({ params: { id: '1' } } as unknown as Request, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      id: 1,
+      name: 'Alquimista',
+      neighborhood: 'Carrasco',
+      tags: ['Bar', 'Parrilla']
+    });
+  });
+
+  it('rejects malformed dates on getAvailability', async () => {
+    const res = createMockResponse();
+
+    await getAvailability(
+      {
+        params: { id: '1' },
+        query: { date: '06/10/2030' }
+      } as unknown as Request,
+      res
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Date must use YYYY-MM-DD format.' });
+  });
+
+  it('clamps availability to zero when reservations exceed table count', async () => {
+    const res = createMockResponse();
+    (db.query as jest.Mock)
+      .mockResolvedValueOnce({ rows: [{ seats_total: 2 }] })
+      .mockResolvedValueOnce({
+        rows: [{ reservation_at: '2030-06-10T13:00:00.000Z', guests: 8 }]
+      });
+
+    await getAvailability(
+      {
+        params: { id: '1' },
+        query: { date: '2030-06-10' }
+      } as unknown as Request,
+      res
+    );
+
+    expect(res.json).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          available_tables: 0
+        })
+      ])
+    );
+  });
+});

@@ -1,236 +1,131 @@
 import * as React from 'react';
-import AppBar from '@mui/material/AppBar';
-import Box from '@mui/material/Box';
-import Toolbar from '@mui/material/Toolbar';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import Menu from '@mui/material/Menu';
-import MenuIcon from '@mui/icons-material/Menu';
-import Container from '@mui/material/Container';
-import Avatar from '@mui/material/Avatar';
-import Button from '@mui/material/Button';
-import Tooltip from '@mui/material/Tooltip';
-import MenuItem from '@mui/material/MenuItem';
-import RestaurantIcon from '@mui/icons-material/Restaurant';
+import {
+  AppBar,
+  Avatar,
+  Box,
+  Container,
+  Divider,
+  IconButton,
+  Menu,
+  Toolbar,
+  Typography
+} from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import LogoutButton from './LogoutButton';
-import Logo from "../../img/logo_bookeat.png";
-import LogoWhite from "../../img/logo_bookeat_white.png";
+import LogoWhite from '../../img/logo_bookeat_white.png';
 
-const pages = ['Inicio', 'Sobre Nosotros'];
+const getInitials = (name?: string, email?: string) => {
+  const source = (name || email || 'U').trim();
+  const pieces = source.split(/\s+/).filter(Boolean);
 
-function ResponsiveAppBar() {
+  return pieces
+    .slice(0, 2)
+    .map((piece) => piece[0]?.toUpperCase() ?? '')
+    .join('');
+};
+
+const Navbar: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
-  const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
+  const [userAnchor, setUserAnchor] = React.useState<null | HTMLElement>(null);
 
-  const handleOpenNavMenu = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorElNav(event.currentTarget);
-  };
-
-  const handleCloseNavMenu = () => {
-    setAnchorElNav(null);
-    // TODO: Add navigation logic
-  };
-
-  const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorElUser(event.currentTarget);
-  };
-
-  const handleCloseUserMenu = () => {
-    setAnchorElUser(null);
-  };
+  const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'BookEater';
 
   return (
-    <AppBar 
-      position="sticky" 
-      color="primary"
-      sx={{
-        height: { xs: 56, sm: 64 }, 
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-      }}
-    >
-      <Container maxWidth={false} sx={{ height: '100%' }}>
-        <Toolbar 
-          disableGutters 
-          sx={{ 
-            height: '100%', 
-            minHeight: 'unset !important', 
-            display: 'flex', 
-            alignItems: 'center', 
-            px: { xs: 1, sm: 2 }, 
-          }}
-        >
-          {/* MOBILE - Hamburger Menu Icon */}
-          <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', mr: 1 }}>
-            <IconButton
-              size="large"
-              aria-label="menu"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleOpenNavMenu}
-              color="inherit"
-            >
-              <MenuIcon />
-            </IconButton>
-            <Menu
-              id="menu-appbar"
-              anchorEl={anchorElNav}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-              keepMounted
-              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-              open={Boolean(anchorElNav)}
-              onClose={handleCloseNavMenu}
-              sx={{ display: { xs: 'block', md: 'none' } }}
-            >
-              <MenuItem onClick={() => { handleCloseNavMenu(); /* navigate to home */ }}>
-                <Box 
-            sx={{ 
-              display: { xs: 'flex', md: 'none' }, 
-              flexGrow: 1, 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              gap: 0.5,
+    <AppBar position="sticky" color="primary">
+      <Container maxWidth={false}>
+        <Toolbar disableGutters sx={{ gap: 1.5, minHeight: { xs: 56, sm: 64 } }}>
+          <Box
+            component="button"
+            type="button"
+            onClick={() => navigate('/map')}
+            sx={{
+              border: 0,
+              background: 'transparent',
+              padding: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
             }}
           >
             <Box
-            component="img"
-            sx={{
-            height: 56,
-            }}
-            alt="BookEat Logo"
-            src={LogoWhite}
+              component="img"
+              src={LogoWhite}
+              alt="BookEat"
+              sx={{ height: { xs: 34, sm: 40 } }}
             />
           </Box>
-              </MenuItem>
-              {pages.map((page) => (
-                <MenuItem key={page} onClick={() => { handleCloseNavMenu(); /* navigate to page */ }}>
-                  <Typography textAlign="center">{page}</Typography>
-                </MenuItem>
-              ))}
-            </Menu>
+
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.1 }}>
+              Hola, {firstName}
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'rgba(255,250,247,0.86)',
+                display: { xs: 'none', sm: 'block' },
+                lineHeight: 1.15
+              }}
+            >
+              Explora restaurantes, guarda favoritos y reserva en tiempo real.
+            </Typography>
           </Box>
 
-          {/* DESKTOP - BookEat Logo and Title as a Button */}
-          <Button
-            component="a"
-            href="/"
-            sx={{
-              display: { xs: 'none', md: 'flex' },
-              alignItems: 'center', 
-              textTransform: 'none',
-              padding: {md: '6px 12px', lg: '8px 16px'}, 
-              marginRight: 2, 
-              '&:hover': {
-                boxShadow: 'none'
+          <IconButton
+            color="inherit"
+            aria-label="Abrir menu de usuario"
+            onClick={(event) => setUserAnchor(event.currentTarget)}
+            sx={{ p: 0.25 }}
+          >
+            <Avatar
+              alt={user?.name || user?.email || 'Usuario'}
+              src={user?.picture || undefined}
+              sx={{
+                width: { xs: 36, sm: 40 },
+                height: { xs: 36, sm: 40 },
+                bgcolor: user?.picture ? 'transparent' : 'rgba(255,255,255,0.22)',
+                color: 'common.white',
+                fontWeight: 700,
+                border: '1px solid rgba(255,255,255,0.28)'
+              }}
+            >
+              {getInitials(user?.name, user?.email)}
+            </Avatar>
+          </IconButton>
+
+          <Menu
+            anchorEl={userAnchor}
+            open={Boolean(userAnchor)}
+            onClose={() => setUserAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            PaperProps={{
+              sx: {
+                width: 260,
+                p: 1.25,
+                borderRadius: 3
               }
             }}
           >
-            
-            <Box
-            component="img"
-            sx={{
-            height: 64,
-            }}
-            alt="BookEat Logo"
-            src={Logo}
-            />
-          </Button>
-          
-          {/* MOBILE - Centered BookEat Logo and Title */}
-          <Box 
-            sx={{ 
-              display: { xs: 'flex', md: 'none' }, 
-              flexGrow: 1, 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              gap: 0.5,
-            }}
-          >
-            <Box
-            component="img"
-            sx={{
-            height: 56,
-            }}
-            alt="BookEat Logo"
-            src={Logo}
-            />
-          </Box>
-
-          
-
-          {/* DESKTOP - Navigation Pages */}
-          <Box 
-            sx={{ 
-              flexGrow: 1, 
-              display: { xs: 'none', md: 'flex' },
-              alignItems: 'center', 
-              justifyContent: 'flex-start', 
-              gap: { md: 0.5, lg: 1 }, 
-            }}
-          >
-            {pages.map((page) => (
-              <Button
-                key={page}
-                onClick={() => { handleCloseNavMenu(); /* navigate */ }}
-                sx={{ 
-                  color: 'white !important', 
-                  padding: {md: '6px 12px', lg: '8px 16px'}, 
-                  display: 'inline-flex', 
-                  alignItems: 'center',   
-                  minHeight: '36px', 
-                  fontSize: { md: '0.875rem', lg: '1rem' }, 
-                  textTransform: 'none', 
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  }
-                }}
-              >
-                {page}
-              </Button>
-            ))}
-          </Box>
-
-          {/* User Avatar and Menu */}
-          <Box sx={{ flexGrow: 0, display: 'flex', alignItems: 'center' }}>
-            <Tooltip title="Abrir configuración">
-              <IconButton 
-                onClick={handleOpenUserMenu} 
-                sx={{ p: { xs: 0.5, sm: 1 } }}
-              >
-                <Avatar 
-                  alt={user?.email || 'Usuario'}
-                  src={user?.picture}
-                  sx={{ 
-                    width: { xs: 32, sm: 40 }, 
-                    height: { xs: 32, sm: 40 },
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                    backgroundColor: user?.picture ? 'transparent' : 'secondary.main',
-                    fontWeight: 600,
-                    color: 'primary.contrastText',
-                  }}
-                >
-                  {user?.email?.charAt(0).toUpperCase() || 'U'}
-                </Avatar>
-              </IconButton>
-            </Tooltip>
-            <Menu
-              sx={{ mt: '45px' }}
-              id="menu-appbar-user"
-              anchorEl={anchorElUser}
-              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-              keepMounted
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              open={Boolean(anchorElUser)}
-              onClose={handleCloseUserMenu}
-            >
-              <LogoutButton />
-            </Menu>
-          </Box>
+            <Box sx={{ px: 1, py: 0.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                {user?.name || 'Usuario'}
+              </Typography>
+              {user?.email && (
+                <Typography variant="body2" color="text.secondary">
+                  {user.email}
+                </Typography>
+              )}
+            </Box>
+            <Divider sx={{ my: 1 }} />
+            <LogoutButton />
+          </Menu>
         </Toolbar>
       </Container>
     </AppBar>
   );
-}
+};
 
-export default ResponsiveAppBar;
+export default Navbar;
