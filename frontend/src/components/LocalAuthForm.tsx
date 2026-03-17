@@ -1,26 +1,26 @@
 import React, { useState } from 'react';
 import {
-  Box,
-  TextField,
-  Button,
-  Typography,
-  Paper,
-  Tabs,
-  Tab,
   Alert,
+  Box,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogContentText,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  Dialog,
-  DialogContent,
-  DialogContentText,
+  Paper,
+  Tab,
+  Tabs,
+  TextField,
+  Typography
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { useAuth } from '../hooks/useAuth';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config/env';
+import { useAuth } from '../hooks/useAuth';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -48,40 +48,40 @@ const PasswordRequirements = ({ password }: { password: string }) => {
   const requirements = [
     {
       met: password.length >= 8,
-      text: 'Al menos 8 caracteres',
+      text: 'Al menos 8 caracteres'
     },
     {
       met: /[A-Z]/.test(password),
-      text: 'Al menos una mayúscula',
+      text: 'Al menos una mayuscula'
     },
     {
       met: /[a-z]/.test(password),
-      text: 'Al menos una minúscula',
+      text: 'Al menos una minuscula'
     },
     {
       met: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-      text: 'Al menos un carácter especial',
-    },
+      text: 'Al menos un caracter especial'
+    }
   ];
 
   return (
     <List dense sx={{ mt: 1 }}>
-      {requirements.map((req, index) => (
+      {requirements.map((requirement, index) => (
         <ListItem key={index} sx={{ py: 0 }}>
           <ListItemIcon sx={{ minWidth: 36 }}>
-            {req.met ? (
+            {requirement.met ? (
               <CheckCircleOutlineIcon color="success" fontSize="small" />
             ) : (
               <ErrorOutlineIcon color="error" fontSize="small" />
             )}
           </ListItemIcon>
           <ListItemText
-            primary={req.text}
+            primary={requirement.text}
             sx={{
-              color: req.met ? 'success.main' : 'text.secondary',
+              color: requirement.met ? 'success.main' : 'text.secondary',
               '& .MuiListItemText-primary': {
-                fontSize: '0.875rem',
-              },
+                fontSize: '0.875rem'
+              }
             }}
           />
         </ListItem>
@@ -97,124 +97,95 @@ const LocalAuthForm: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    name: '',
+    name: ''
   });
   const [touched, setTouched] = useState({
     email: false,
     password: false,
-    name: false,
+    name: false
   });
-  const { user, login } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const withBase = (path: string) => new URL(path, API_BASE_URL).toString();
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
     setError('');
     setTouched({ email: false, password: false, name: false });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((current) => ({
+      ...current,
+      [event.target.name]: event.target.value
+    }));
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    setTouched({
-      ...touched,
-      [e.target.name]: true,
-    });
+  const handleBlur = (event: React.FocusEvent<HTMLInputElement>) => {
+    setTouched((current) => ({
+      ...current,
+      [event.target.name]: true
+    }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
-
-    // Mark all fields as touched on submit
     setTouched({
       email: true,
       password: true,
-      name: tabValue === 1,
+      name: tabValue === 1
     });
 
-    // Validate required fields
     if (!formData.email || !formData.password || (tabValue === 1 && !formData.name)) {
       return;
     }
 
     try {
       if (tabValue === 0) {
-        // Login
         await login(formData.email, formData.password);
-        window.location.href = '/map';
+        navigate('/map', { replace: true });
       } else {
-        // Register
-        const response = await fetch('/api/auth/register', {
+        const response = await fetch(withBase('/api/auth/register'), {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify(formData),
-          credentials: 'include',
+          credentials: 'include'
         });
 
         const data = await response.json();
-
         if (!response.ok) {
           throw new Error(data.error || 'Error en el registro');
         }
 
-        // Si es registro, mostrar mensaje y cambiar a pestaña de login
         setSuccessMessage('Se ha registrado satisfactoriamente');
         setTabValue(0);
-        // Limpiar el formulario
         setFormData({
           email: '',
           password: '',
-          name: '',
+          name: ''
         });
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error en la autenticación');
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Error en la autenticacion');
     }
   };
 
   return (
-    <Paper elevation={3} sx={{ maxWidth: 400, width: '100%', mx: 'auto' }}>
+    <Paper elevation={3} sx={{ maxWidth: 420, width: '100%', mx: 'auto', borderRadius: 4 }}>
       <Tabs
         value={tabValue}
         onChange={handleTabChange}
         variant="fullWidth"
         sx={{
-          borderBottom: 1, // Mantiene la línea divisoria general debajo de las pestañas
-          borderColor: 'divider',
-          '& .MuiTabs-indicator': {
-            backgroundColor: 'primary.main', // Esta es la línea de color debajo de la pestaña activa
-            height: '3px', // Puedes ajustar el grosor de la línea si lo deseas
-          },
-          '& .MuiTab-root': {
-            textTransform: 'none', // Evita que el texto se ponga en mayúsculas
-            fontWeight: 500,
-            color: 'text.secondary', // Color del texto para pestañas inactivas (ej. gris)
-            backgroundColor: 'transparent', // Asegura que no haya fondo por defecto
-            '&.Mui-selected': {
-              color: 'primary.main', // Color del texto para la pestaña activa (ej. rojo)
-              fontWeight: 600, // Opcional: texto un poco más grueso para la activa
-              backgroundColor: 'transparent', // Importante: sin color de fondo para la pestaña activa
-            },
-            '&:not(.Mui-selected):hover': {
-              color: 'primary.main', // Color del texto de la pestaña inactiva al pasar el cursor
-              backgroundColor: 'transparent', // Sin fondo al pasar el cursor
-            },
-            // Eliminar cualquier efecto de ripple que pueda parecer un fondo si no se desea
-            // '& .MuiTouchRipple-root': {
-            //   display: 'none',
-            // }
-          },
+          borderBottom: 1,
+          borderColor: 'divider'
         }}
       >
-        <Tab label="Iniciar Sesión" />
+        <Tab label="Iniciar sesion" />
         <Tab label="Registrarse" />
       </Tabs>
 
@@ -237,7 +208,7 @@ const LocalAuthForm: React.FC = () => {
             margin="normal"
             required
             error={touched.email && !formData.email}
-            helperText={touched.email && !formData.email ? "Por favor ingrese su correo electrónico" : ""}
+            helperText={touched.email && !formData.email ? 'Por favor ingresa tu email' : ''}
           />
           <TextField
             fullWidth
@@ -250,15 +221,12 @@ const LocalAuthForm: React.FC = () => {
             margin="normal"
             required
             error={touched.password && !formData.password}
-            helperText={touched.password && !formData.password ? "Por favor ingrese su contraseña" : ""}
+            helperText={
+              touched.password && !formData.password ? 'Por favor ingresa tu contraseña' : ''
+            }
           />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2, color: '#fff' }} // Añadido color: '#fff'
-          >
-            Iniciar Sesión
+          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2, color: '#fff' }}>
+            Iniciar sesion
           </Button>
         </TabPanel>
 
@@ -273,7 +241,7 @@ const LocalAuthForm: React.FC = () => {
             margin="normal"
             required
             error={touched.name && !formData.name}
-            helperText={touched.name && !formData.name ? "Por favor ingrese su nombre" : ""}
+            helperText={touched.name && !formData.name ? 'Por favor ingresa tu nombre' : ''}
           />
           <TextField
             fullWidth
@@ -286,7 +254,7 @@ const LocalAuthForm: React.FC = () => {
             margin="normal"
             required
             error={touched.email && !formData.email}
-            helperText={touched.email && !formData.email ? "Por favor ingrese su correo electrónico" : ""}
+            helperText={touched.email && !formData.email ? 'Por favor ingresa tu email' : ''}
           />
           <TextField
             fullWidth
@@ -299,22 +267,19 @@ const LocalAuthForm: React.FC = () => {
             margin="normal"
             required
             error={touched.password && !formData.password}
-            helperText={touched.password && !formData.password ? "Por favor ingrese su contraseña" : ""}
+            helperText={
+              touched.password && !formData.password ? 'Por favor ingresa tu contraseña' : ''
+            }
           />
           <PasswordRequirements password={formData.password} />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2, color: '#fff' }} // Añadido color: '#fff'
-          >
+          <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2, color: '#fff' }}>
             Registrarse
           </Button>
         </TabPanel>
       </form>
 
       <Dialog
-        open={!!successMessage}
+        open={Boolean(successMessage)}
         onClose={() => setSuccessMessage('')}
         aria-labelledby="success-dialog-title"
         aria-describedby="success-dialog-description"
@@ -322,18 +287,18 @@ const LocalAuthForm: React.FC = () => {
           sx: {
             minWidth: '300px',
             textAlign: 'center',
-            padding: '20px',
-          },
+            padding: '20px'
+          }
         }}
       >
         <DialogContent>
-          <DialogContentText 
-            id="success-dialog-description" 
-            sx={{ 
-              textAlign: 'center', 
+          <DialogContentText
+            id="success-dialog-description"
+            sx={{
+              textAlign: 'center',
               fontSize: '1.2rem',
               color: 'success.main',
-              fontWeight: 'bold',
+              fontWeight: 'bold'
             }}
           >
             {successMessage}

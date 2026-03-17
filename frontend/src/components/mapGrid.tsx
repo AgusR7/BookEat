@@ -1,7 +1,5 @@
-// frontend/src/components/MapGrid.tsx
 import React from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import { Box, Typography } from '@mui/material';
 import Map from './Map';
 import ReservationsList from './ReservationsList';
 import { User } from '../hooks/useAuth';
@@ -12,125 +10,64 @@ interface MapGridProps {
 }
 
 const MapGrid: React.FC<MapGridProps> = ({ user }) => {
+  const firstName = user.name.split(' ')[0] || user.email.split('@')[0];
+
   return (
     <Box
       component="section"
       sx={{
         position: 'fixed',
-        top: { xs: 56, sm: 64 }, // altura responsive del navbar
+        top: { xs: 56, sm: 64 },
         left: 0,
         right: 0,
         bottom: 0,
         display: 'flex',
-        flexDirection: { xs: 'column', lg: 'row' }, // Stack en mobile, row en desktop
+        flexDirection: { xs: 'column', lg: 'row' },
         overflow: 'hidden',
-        
-        // fondo responsive
-        backgroundImage: `url(${image})`,
+        backgroundImage: `linear-gradient(180deg, rgba(255, 249, 244, 0.78), rgba(255, 249, 244, 0.7)), url(${image})`,
         backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center'
       }}
     >
-      {/* Overlay */}
       <Box
         sx={{
-          position: 'absolute',
-          inset: 0, // más limpio que top/left/right/bottom
-          bgcolor: 'rgba(156, 156, 156, 0.4)',
-          zIndex: 1,
-        }}
-      />
-
-      {/* Contenido */}
-      <Box
-        sx={{
-          position: 'relative',
+          width: { xs: '100%', lg: 420 },
+          maxWidth: { lg: 460 },
+          height: { xs: '42vh', lg: '100%' },
+          minHeight: { xs: 260, lg: '100%' },
+          backgroundColor: 'rgba(255,255,255,0.76)',
+          backdropFilter: 'blur(16px)',
+          borderRight: { lg: '1px solid rgba(15, 23, 42, 0.08)' },
+          borderBottom: { xs: '1px solid rgba(15, 23, 42, 0.08)', lg: 'none' },
           display: 'flex',
-          flexDirection: { xs: 'column', lg: 'row' },
-          height: '100%',
-          width: '100%',
-          zIndex: 2, // encima del overlay
+          flexDirection: 'column'
         }}
       >
-        {/* PANEL LATERAL: Reservas */}
-        <Box
-          className="reservation-panel" //  Agregar clase
-          sx={{
-            order: { xs: 2, lg: 1 },
-            width: { 
-              xs: '100%',
-              sm: '100%',
-              md: '100%',
-              lg: '380px',
-              xl: '420px',
-            },
-            height: { 
-              xs: 'auto',
-              sm: '45vh',
-              md: '40vh',
-              lg: '100%',
-            },
-            minHeight: { xs: '200px', lg: 'auto' },
-            maxHeight: { xs: '50vh', lg: 'none' },
-            bgcolor: 'rgba(255, 255, 255, 0.95) !important', //  Forzar
-            borderRight: { lg: '1px solid rgba(0, 0, 0, 0.1)' },
-            borderBottom: { xs: '1px solid rgba(0, 0, 0, 0.1)', lg: 'none' },
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          {/* Header del panel */}
-          <Box 
-            sx={{ 
-              p: { xs: 1.5, sm: 2 },
-              borderBottom: '1px solid rgba(0,0,0,0.1)',
-              flexShrink: 0,
-              bgcolor: 'transparent !important', //  Forzar
-            }}
-          >
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                mb: 0,
-                fontSize: { xs: '1.1rem', sm: '1.25rem' },
-                color: '#333 !important', //  Forzar color oscuro
-                fontWeight: 600,
-              }}
-            >
-              Bienvenido, {user.email.split('@')[0]}!
-            </Typography>
-          </Box>
-          
-          {/* Lista de reservas - scroll inteligente */}
-          <Box 
-            sx={{ 
-              flex: 1,
-              overflow: { xs: 'auto', lg: 'hidden' }, // Scroll en mobile, hidden en desktop
-              p: { xs: 1, sm: 1.5 }, // Padding adaptativo
-            }}
-          >
-            <ReservationsList user={user} />
-          </Box>
+        <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(15, 23, 42, 0.08)' }}>
+          <Typography variant="overline" sx={{ color: 'primary.main', letterSpacing: '0.08em' }}>
+            Tu agenda gastronomica
+          </Typography>
+          <Typography variant="h6" sx={{ mb: 0.5 }}>
+            Bienvenido, {firstName}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Revisa tus reservas activas y administra tus proximas salidas desde un solo
+            lugar.
+          </Typography>
         </Box>
 
-        {/* MAPA - Completamente responsive */}
-        <Box
-          sx={{
-            order: { xs: 1, lg: 2 },
-            flex: 1, // Ocupa el resto del espacio disponible
-            height: { 
-              xs: '50vh', // Mobile: 50% del viewport
-              sm: '55vh', // Tablet: 55%
-              md: '60vh', // Tablet landscape: 60%
-              lg: '100%', // Desktop: altura completa
-            },
-            minHeight: { xs: '300px', lg: 'auto' }, // Altura mínima garantizada
-            overflow: 'hidden',
-          }}
-        >
-          <Map user={user} />
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden', p: 2 }}>
+          <ReservationsList user={user} />
         </Box>
+      </Box>
+
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: { xs: '58vh', lg: '100%' }
+        }}
+      >
+        <Map user={user} />
       </Box>
     </Box>
   );

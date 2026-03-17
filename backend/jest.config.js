@@ -1,8 +1,8 @@
 module.exports = {
-  // preset: 'ts-jest', // Removed/commented out
   testEnvironment: 'node',
   roots: ['<rootDir>/test'],
+  testMatch: ['**/*.test.ts'],
   transform: {
-    '^.+\\.tsx?$': 'babel-jest', // Use babel-jest
-  },
+    '^.+\\.tsx?$': 'babel-jest',
+  }
 };

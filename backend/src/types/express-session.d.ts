@@ -1,19 +1,20 @@
 import 'express-session';
 
-interface UserSession {
+interface SessionUser {
   id: number;
   email: string;
   name: string;
-  role: string;
+  role: 'user' | 'customer' | 'restaurant';
+  picture?: string | null;
 }
 
-interface RestaurantSession extends UserSession {
+interface RestaurantSession extends SessionUser {
   restaurant_id: number;
 }
 
 declare module 'express-session' {
   interface SessionData {
-    user?: UserSession;
+    user?: SessionUser;
     restaurant?: RestaurantSession;
   }
 }

@@ -29,6 +29,7 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/restaurant_reservations
       DB_HOST: db
       DB_USER: postgres
       DB_PASSWORD: postgres

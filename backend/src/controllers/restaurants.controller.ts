@@ -1,185 +1,245 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
 import { io } from '../sockets/occupancySocket';
+import { extractAuthUser } from '../utils/auth';
+import {
+  RESERVATION_DURATION_MS,
+  buildAvailabilityIntervals,
+  getRestaurantDayWindow,
+  parseDateQuery
+} from '../utils/reservationTime';
+
+const parsePositiveInteger = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getAuthUser = (req: Request) => req.authUser ?? extractAuthUser(req);
 
 export const getAll = async (req: Request, res: Response) => {
-  const { tag, neighborhood } = req.query;
+  const { tag, neighborhood } = (req.query ?? {}) as {
+    tag?: string | string[];
+    neighborhood?: string | string[];
+  };
+  const normalizedTag = Array.isArray(tag) ? tag[0] : tag;
+  const normalizedNeighborhood = Array.isArray(neighborhood)
+    ? neighborhood[0]
+    : neighborhood;
 
   let query = `
-    SELECT r.id, r.name, r.latitude, r.longitude, r.description, r.seats_total, r.neighborhood, 
-           (r.seats_total/2)::int AS tables_total,
-      COALESCE(
-        json_agg(t.name) FILTER (WHERE t.name IS NOT NULL), 
-        '[]'
-      ) AS tags
+    SELECT r.id, r.name, r.latitude, r.longitude, r.description, r.seats_total, r.neighborhood,
+           (r.seats_total / 2)::int AS tables_total,
+           COALESCE(
+             json_agg(t.name ORDER BY t.name) FILTER (WHERE t.name IS NOT NULL),
+             '[]'
+           ) AS tags
     FROM restaurants r
     LEFT JOIN restaurant_tags rt ON r.id = rt.restaurant_id
     LEFT JOIN tags t ON rt.tag_id = t.id
   `;
 
   const conditions: string[] = [];
-  const params: any[] = [];
+  const params: string[] = [];
 
-  if (tag) {
+  if (normalizedTag) {
     conditions.push(`t.name = $${params.length + 1}`);
-    params.push(tag);
+    params.push(normalizedTag);
   }
 
-  if (neighborhood) {
+  if (normalizedNeighborhood) {
     conditions.push(`r.neighborhood = $${params.length + 1}`);
-    params.push(neighborhood);
+    params.push(normalizedNeighborhood);
   }
 
   if (conditions.length > 0) {
     query += ` WHERE ${conditions.join(' AND ')}`;
   }
 
-  query += ` GROUP BY r.id`;
+  query += ' GROUP BY r.id ORDER BY r.name ASC';
 
-  const { rows } = await db.query(query, params);
-  res.json(rows);
+  try {
+    const { rows } = await db.query(query, params);
+    return res.json(rows);
+  } catch (error) {
+    console.error('Error fetching restaurants:', error);
+    return res.status(500).json({ error: 'Error al obtener restaurantes' });
+  }
 };
-
 
 export const getById = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { rows } = await db.query(
-    'SELECT id, name, latitude, longitude, description, phone, email, address, seats_total, (seats_total/2)::int AS tables_total FROM restaurants WHERE id = $1',
-    [id]
-  );
-  if (!rows.length) return res.status(404).json({ error: 'Restaurant not found' });
-  res.json(rows[0]);
+  const restaurantId = parsePositiveInteger(req.params.id);
+  if (!restaurantId) {
+    return res.status(400).json({ error: 'Restaurant id is invalid.' });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `SELECT r.id, r.name, r.latitude, r.longitude, r.description, r.phone, r.email, r.address,
+              r.seats_total, r.neighborhood, (r.seats_total / 2)::int AS tables_total,
+              COALESCE(
+                json_agg(t.name ORDER BY t.name) FILTER (WHERE t.name IS NOT NULL),
+                '[]'
+              ) AS tags
+       FROM restaurants r
+       LEFT JOIN restaurant_tags rt ON r.id = rt.restaurant_id
+       LEFT JOIN tags t ON rt.tag_id = t.id
+       WHERE r.id = $1
+       GROUP BY r.id`,
+      [restaurantId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    return res.json(rows[0]);
+  } catch (error) {
+    console.error('Error fetching restaurant by id:', error);
+    return res.status(500).json({ error: 'Error al obtener restaurante' });
+  }
 };
 
-const TZ_OFFSET_MS = -3 * 60 * 60 * 1000; // UTC-3 timezone in milliseconds
-// Obtiene disponibilidad por intervalos de 15 minutos para un día dado
 export const getAvailability = async (req: Request, res: Response) => {
-  const restaurant_id = Number(req.params.id);
-  const date = req.query.date as string;
-  if (!date) return res.status(400).json({ error: 'Date query parameter is required' });
-  
-  // Parse date and generate time slots for restaurant hours (10:00 AM - 11:30 PM local time)
-  const [y, m, d] = date.split('-').map(Number);
+  const restaurantId = parsePositiveInteger(req.params.id);
+  const date = req.query.date as string | undefined;
 
-  // Generate intervals from 10:00 AM to 11:30 PM local time (every 15 minutes)
-  const openMin = 10 * 60; // Local 10:00 AM in minutes from midnight
-  const lastResMin = 23 * 60 + 30; // Local 11:30 PM in minutes from midnight
-  const intervals: { start: number; end: number }[] = [];
-  const slotDurationMs = 15 * 60 * 1000; // Duration of each availability slot (15 minutes)
+  if (!restaurantId) {
+    return res.status(400).json({ error: 'Restaurant id is invalid.' });
+  }
 
-  for (let mins = openMin; mins <= lastResMin; mins += 15) {
-    // Calculate local time first, then convert to UTC
-    // Create local time as if it were UTC, then adjust for timezone
-    const localTimeAsUtc = Date.UTC(y, m - 1, d, Math.floor(mins / 60), mins % 60, 0);
-    // Convert local time to UTC by subtracting the timezone offset
-    const slotStartUtc = localTimeAsUtc - TZ_OFFSET_MS; // For UTC-3, subtract -3 hours (add 3 hours)
-    const slotEndUtc = slotStartUtc + slotDurationMs; // End of the 15-minute slot in UTC
-    intervals.push({ start: slotStartUtc, end: slotEndUtc });
-  }  // Fetch seats_total
-  const { rows: restRows } = await db.query('SELECT seats_total FROM restaurants WHERE id=$1', [restaurant_id]);
-  if (!restRows.length) return res.status(404).json({ error: 'Restaurant not found' });
-  const tables_total = Math.floor(restRows[0].seats_total / 2);
-  
-  // Define the date window to query reservations for the entire day in UTC
-  // We need to query a wider window to catch reservations that might extend into the next day
-  const localMidnight = Date.UTC(y, m - 1, d, 0, 0, 0);
-  const dateStart = new Date(localMidnight - TZ_OFFSET_MS); // Start of local day in UTC
-  const dateEnd = new Date(localMidnight - TZ_OFFSET_MS + 24 * 60 * 60 * 1000); // End of local day in UTC
-  const { rows: resRows } = await db.query(
-    `SELECT reservation_at, guests FROM reservations
-     WHERE restaurant_id=$1
-       AND status IN ('pending','confirmed')
-       AND reservation_at + INTERVAL '90 minutes' > $2
-       AND reservation_at < $3`,
-    [restaurant_id, dateStart, dateEnd]
-  );
-  // Compute availability
-  const availability = intervals.map(({ start: slotStartUtc, end: slotEndUtc }) => {
-    const usedTables = resRows.reduce((sum: number, r:any) => {
-        const rStartUtc = new Date(r.reservation_at).getTime();
-        const rEndUtc   = rStartUtc + 90 * 60_000; // Reservation lasts 90 minutes
-        // Check for overlap: reservation [rStartUtc, rEndUtc) vs slot [slotStartUtc, slotEndUtc)
-        // A slot is occupied if the reservation period overlaps with the slot period.
-        if (rStartUtc < slotEndUtc && rEndUtc > slotStartUtc) {
-          return sum + Math.ceil(r.guests / 2);
-        }
-        return sum;
-    }, 0);
-    return { start: slotStartUtc, available_tables: tables_total - usedTables };
-  });
-  res.json(availability);
+  if (!date) {
+    return res.status(400).json({ error: 'Date query parameter is required' });
+  }
+
+  const parsedDate = parseDateQuery(date);
+  if (!parsedDate) {
+    return res.status(400).json({ error: 'Date must use YYYY-MM-DD format.' });
+  }
+
+  try {
+    const intervals = buildAvailabilityIntervals(parsedDate);
+    const { rows: restaurantRows } = await db.query(
+      'SELECT seats_total FROM restaurants WHERE id = $1',
+      [restaurantId]
+    );
+
+    if (!restaurantRows.length) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    const tablesTotal = Math.floor(restaurantRows[0].seats_total / 2);
+    const { dateStart, dateEnd } = getRestaurantDayWindow(parsedDate);
+
+    const { rows: reservationRows } = await db.query(
+      `SELECT reservation_at, guests
+       FROM reservations
+       WHERE restaurant_id = $1
+         AND status IN ('pending', 'confirmed')
+         AND reservation_at + INTERVAL '90 minutes' > $2
+         AND reservation_at < $3`,
+      [restaurantId, dateStart, dateEnd]
+    );
+
+    const now = Date.now();
+    const availability = intervals
+      .map(({ start, end }) => {
+        const usedTables = reservationRows.reduce((sum: number, row: any) => {
+          const reservationStart = new Date(row.reservation_at).getTime();
+          const reservationEnd = reservationStart + RESERVATION_DURATION_MS;
+
+          if (reservationStart < end && reservationEnd > start) {
+            return sum + Math.ceil(row.guests / 2);
+          }
+
+          return sum;
+        }, 0);
+
+        return {
+          start,
+          available_tables: Math.max(tablesTotal - usedTables, 0)
+        };
+      })
+      .filter((slot) => slot.start >= now || dateStart.getTime() > now);
+
+    return res.json(availability);
+  } catch (error) {
+    console.error('Error fetching availability:', error);
+    return res.status(500).json({ error: 'Error al obtener disponibilidad' });
+  }
 };
 
-// Obtiene todas las reservas de un restaurante (para confirmación)
 export const getRestaurantReservations = async (req: Request, res: Response) => {
-  const restaurantSession = (req.session as any).restaurant;
-  if (!restaurantSession || !restaurantSession.restaurant_id) {
+  const authUser = getAuthUser(req);
+  if (!authUser || authUser.role !== 'restaurant' || !authUser.restaurant_id) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   try {
     const { rows } = await db.query(
-      `SELECT r.*, u.name as user_name, u.email as user_email
+      `SELECT r.*, u.name AS user_name, u.email AS user_email
        FROM reservations r
        JOIN users u ON r.user_id = u.id
        WHERE r.restaurant_id = $1
        ORDER BY r.reservation_at DESC`,
-      [restaurantSession.restaurant_id]
+      [authUser.restaurant_id]
     );
-    res.json(rows);
+
+    return res.json(rows);
   } catch (error) {
     console.error('Error fetching restaurant reservations:', error);
-    res.status(500).json({ error: 'Error al obtener las reservas' });
+    return res.status(500).json({ error: 'Error al obtener las reservas' });
   }
 };
 
 export const confirmPresence = async (req: Request, res: Response) => {
-  const restaurantSession = (req.session as any).restaurant;
-  if (!restaurantSession || !restaurantSession.restaurant_id) {
+  const authUser = getAuthUser(req);
+  if (!authUser || authUser.role !== 'restaurant' || !authUser.restaurant_id) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const reservationId = Number(req.params.id);
-  const { present } = req.body; // esperamos un boolean: true para asistió, false para no asistió
+  const reservationId = parsePositiveInteger(req.params.id);
+  if (!reservationId) {
+    return res.status(400).json({ error: 'Reservation id is invalid.' });
+  }
 
+  const { present } = req.body;
   if (typeof present !== 'boolean') {
-    return res.status(400).json({ error: 'El cuerpo de la solicitud debe incluir un campo "present" booleano.' });
+    return res
+      .status(400)
+      .json({ error: 'El cuerpo de la solicitud debe incluir un campo "present" booleano.' });
   }
 
   try {
-    // Verify the reservation belongs to this restaurant
     const { rows } = await db.query(
-      'SELECT * FROM reservations WHERE id = $1 AND restaurant_id = $2',
-      [reservationId, restaurantSession.restaurant_id]
+      'SELECT id FROM reservations WHERE id = $1 AND restaurant_id = $2',
+      [reservationId, authUser.restaurant_id]
     );
 
-    if (rows.length === 0) {
+    if (!rows.length) {
       return res.status(404).json({ error: 'Reserva no encontrada' });
     }
 
     const newStatus = present ? 'confirmed' : 'no-show';
-    // Update the reservation
     await db.query(
-      `UPDATE reservations 
-       SET presence_confirmed = $1, 
+      `UPDATE reservations
+       SET presence_confirmed = $1,
            presence_confirmed_at = CASE WHEN $1 = true THEN NOW() ELSE NULL END,
            status = $2
        WHERE id = $3`,
       [present, newStatus, reservationId]
     );
 
-    // Emit socket event for real-time updates
-    io.to(`restaurant_${restaurantSession.restaurant_id}`).emit('reservation_updated', {
+    io.to(`restaurant_${authUser.restaurant_id}`).emit('reservation_updated', {
       reservation_id: reservationId,
       presence_confirmed: present,
       status: newStatus
     });
 
-    res.json({ message: present ? 'Presencia confirmada' : 'Ausencia confirmada' });
+    return res.json({
+      message: present ? 'Presencia confirmada' : 'Ausencia confirmada'
+    });
   } catch (error) {
     console.error('Error confirming presence/absence:', error);
-    res.status(500).json({ error: 'Error al confirmar presencia/ausencia' });
+    return res.status(500).json({ error: 'Error al confirmar presencia/ausencia' });
   }
 };
-
-

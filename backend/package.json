@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
-    "test": "jest"
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "dependencies": {
     "@types/jest": "^29.5.14",
@@ -38,6 +40,9 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^20.11.19",
     "@types/nodemailer": "^6.4.17",
+    "@types/passport": "^1.0.17",
+    "@types/passport-google-oauth20": "^2.0.17",
+    "@types/pg": "^8.18.0",
     "babel-jest": "^29.7.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.4.2"

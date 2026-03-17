@@ -5,42 +5,25 @@ import express from 'express';
 import { Server } from 'socket.io';
 import passport from 'passport';
 import session from 'express-session';
-import client from 'prom-client'; // Added prom-client
 import './utils/passport';  // Passport configuration
 import restaurantsRouter from './routes/restaurants';
 import reservationsRouter from './routes/reservations';
 import authRouter from './routes/auth';
 import { db } from './db';
-import { sendMail } from './utils/mailer';
 import { registerOccupancySocket, io } from './sockets/occupancySocket';
 import { runMigrations } from './db/migrations';
+import { metricsRegistry } from './metrics/prometheus';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
-// Prometheus metrics
-const collectDefaultMetrics = client.collectDefaultMetrics;
-collectDefaultMetrics();
-
-// Create a Registry to register the metrics
-const register = new client.Registry();
-collectDefaultMetrics({ register });
-
-// Define a counter for new reservations
-export const newReservationsCounter = new client.Counter({
-  name: 'new_reservations_total',
-  help: 'Total number of new reservations created',
-  labelNames: ['restaurant_id', 'restaurant_name'], // Add restaurant_name label
-});
-register.registerMetric(newReservationsCounter);
-
 // Expose /metrics endpoint
 app.get('/metrics', async (req, res) => {
   try {
-    res.set('Content-Type', register.contentType);
-    res.end(await register.metrics());
+    res.set('Content-Type', metricsRegistry.contentType);
+    res.end(await metricsRegistry.metrics());
   } catch (ex) {
     res.status(500).end(ex);
   }

@@ -4,6 +4,7 @@ interface ReservationICSOptions {
   restaurant: string;
   date: Date;
   guests: number;
+  email?: string;
 }
 
 export async function generateReservationICS(options: ReservationICSOptions): Promise<string> {
@@ -17,20 +18,23 @@ export async function generateReservationICS(options: ReservationICSOptions): Pr
   const minute = date.getMinutes();
 
   const event = {
-    start: [year, month, day, hour, minute],
+    start: [year, month, day, hour, minute] as [number, number, number, number, number],
     duration: { hours: 2 }, // Duración estimada de la reserva
     title: `Reserva "${restaurant}" a las ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
     description: `Reserva para ${guests} personas en ${restaurant}`,
     location: restaurant,
-    status: 'CONFIRMED',
-    busyStatus: 'BUSY',
+    status: 'CONFIRMED' as const,
+    busyStatus: 'BUSY' as const,
     organizer: { name: restaurant }
   };
 
   return new Promise((resolve, reject) => {
-    createEvent(event, (error, value) => {
-      if (error) return reject(error);
-      resolve(value);
+    createEvent(event, (error: Error | undefined, value?: string) => {
+      if (error) {
+        return reject(error);
+      }
+
+      return resolve(value || '');
     });
   });
 }

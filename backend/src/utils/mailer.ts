@@ -111,7 +111,7 @@ export const sendReservationCancellationEmail = async (
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    hour: '2-disgit',
+    hour: '2-digit',
     minute: '2-digit',
     timeZone: 'America/Montevideo'
   });
